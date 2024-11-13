@@ -1,5 +1,6 @@
+import { Category } from 'src/category/entities/category.entity';
 import { SaleDetail } from 'src/sale_detail/entities/sale_detail.entity';
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity({
   name: 'products',
@@ -27,4 +28,8 @@ export class Product {
     cascade: true,
   })
   saleDetails: SaleDetail[];
+
+  @ManyToOne(() => Category, (category) => category.products)
+  @JoinColumn({ name: 'categoria_id' })
+  category: Category;
 }

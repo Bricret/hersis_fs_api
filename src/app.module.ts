@@ -5,6 +5,7 @@ import { ProductsModule } from './products/products.module';
 import { CommonModule } from './common/common.module';
 import { SalesModule } from './sales/sales.module';
 import { SaleDetailModule } from './sale_detail/sale_detail.module';
+import { CategoryModule } from './category/category.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { SaleDetailModule } from './sale_detail/sale_detail.module';
     CommonModule,
     SalesModule,
     SaleDetailModule,
+    CategoryModule,
   ],
   controllers: [],
   providers: [],
