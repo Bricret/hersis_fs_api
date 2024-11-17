@@ -21,6 +21,9 @@ export class Product {
   @Column()
   quantity: number;
 
+  @Column({ nullable: true })
+  units_per_blister: number;
+
   @Column()
   expiration_date: Date;
 

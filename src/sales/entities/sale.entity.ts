@@ -6,7 +6,6 @@ import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 })
 export class Sale {
 
-    //TODO: Add the missing columns for the Sale entity
     @PrimaryGeneratedColumn('increment')
     id: bigint;
 
@@ -19,7 +18,8 @@ export class Sale {
     @OneToMany(() => SaleDetail, (saleDetail) => saleDetail.sale, {
         cascade: true,
       })
-      saleDetails: SaleDetail[];
+    saleDetails: SaleDetail[]; 
+    
 
 
 }
