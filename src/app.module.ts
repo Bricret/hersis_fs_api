@@ -7,6 +7,7 @@ import { SalesModule } from './sales/sales.module';
 import { SaleDetailModule } from './sale_detail/sale_detail.module';
 import { CategoryModule } from './category/category.module';
 import { UsersModule } from './users/users.module';
+import { TransactionHistoryModule } from './transaction_history/transaction_history.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { UsersModule } from './users/users.module';
     SaleDetailModule,
     CategoryModule,
     UsersModule,
+    TransactionHistoryModule,
   ],
   controllers: [],
   providers: [],

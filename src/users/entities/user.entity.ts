@@ -1,4 +1,5 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { TransactionHistory } from "src/transaction_history/entities/transaction_history.entity";
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity({
     name: 'user'
@@ -28,5 +29,8 @@ export class User {
 
     @Column({ default: true })
     isActive: boolean;
+
+    @OneToMany(() => TransactionHistory, transactionHistory => transactionHistory.user)
+    transactions: TransactionHistory[];
 
 }
