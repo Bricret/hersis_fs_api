@@ -6,6 +6,7 @@ import { Product } from './entities/product.entity';
 import { Repository } from 'typeorm';
 import { CommonService } from 'src/common/common.service';
 import { InventoryEntriesDto } from './dto/inventory_entries.dto';
+import { BulkInventoryEntryDto } from './dto';
 
 @Injectable()
 export class ProductsService {
@@ -57,6 +58,26 @@ export class ProductsService {
     await this.productRepository.save(product);
 
     return { message: 'Inventario actualizado exitosamente.', product };
+  }
+
+  async addBulkInventoryEntries(bulkEntryDto: BulkInventoryEntryDto) {
+    const results = [];
+
+    for (const entry of bulkEntryDto.entries) {
+      const product = await this.productRepository.findOne({
+        where: { id: entry.productId },
+      });
+
+      if (!product)
+        this.commonService.handleExceptions(
+          `El producto ${entry.productId} no fue encontrado.`,
+          'NF',
+        );
+
+        const data = await this.addInventoryEntry(entry);
+        results.push(data);
+    }
+
   }
 
   private calculateNewAverageCost(
