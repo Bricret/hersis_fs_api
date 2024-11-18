@@ -5,15 +5,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Product } from './entities/product.entity';
 import { Repository } from 'typeorm';
 import { CommonService } from 'src/common/common.service';
+import { InventoryEntriesDto } from './dto/inventory_entries.dto';
 
 @Injectable()
 export class ProductsService {
   constructor(
-
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
     private readonly commonService: CommonService,
-
   ) {}
 
   async create(createProductDto: CreateProductDto): Promise<Product> {
@@ -32,18 +31,55 @@ export class ProductsService {
     }
   }
 
-  async findAll() {
+  async addInventoryEntry(createEntryDto: InventoryEntriesDto) {
+    const product = await this.productRepository.findOneBy({
+      id: createEntryDto.productId,
+    });
+    if (!product)
+      this.commonService.handleExceptions(
+        'El producto solicitado no fue encontrado.',
+        'NF',
+      );
 
+    const newQuantity = createEntryDto.quantity;
+    const newCostPrice = product.cost_price;
+    const stockQuantity = product.quantity;
+    const currentAverageCost = product.cost_price;
+
+    product.quantity += newQuantity;
+    product.cost_price = this.calculateNewAverageCost(
+      stockQuantity,
+      currentAverageCost,
+      newQuantity,
+      newCostPrice,
+    );
+
+    await this.productRepository.save(product);
+
+    return { message: 'Inventario actualizado exitosamente.', product };
+  }
+
+  private calculateNewAverageCost(
+    currentStock: number,
+    currentAverageCost: number,
+    newQuantity: number,
+    newCostPrice: number,
+  ): number {
+    const totalValue =
+      currentAverageCost * (currentStock - newQuantity) +
+      newCostPrice * newQuantity;
+    return totalValue / currentStock;
+  }
+
+  async findAll() {
     try {
       return await this.productRepository.find();
     } catch (error) {
       this.commonService.handleExceptions(error.message, 'BR');
     }
-
   }
 
   async findOne(id: bigint) {
-
     try {
       return await this.productRepository.findOne({
         where: { id },
@@ -51,18 +87,19 @@ export class ProductsService {
     } catch (error) {
       this.commonService.handleExceptions(error.message, 'NF');
     }
-
   }
 
   async update(id: bigint, updateProductDto: UpdateProductDto) {
-
     try {
-      
       const findProduct = await this.productRepository.findOne({
         where: { id },
       });
 
-      if (!findProduct) this.commonService.handleExceptions('El producto solicitado no fue encontrado.', 'NF');
+      if (!findProduct)
+        this.commonService.handleExceptions(
+          'El producto solicitado no fue encontrado.',
+          'NF',
+        );
 
       const product = this.productRepository.create(updateProductDto);
       product.id = id;
@@ -73,13 +110,16 @@ export class ProductsService {
   }
 
   async remove(id: bigint) {
-
     try {
       const product = await this.productRepository.findOne({
         where: { id },
       });
 
-      if (!product) this.commonService.handleExceptions('El producto solicitado no fue encontrado.', 'NF');
+      if (!product)
+        this.commonService.handleExceptions(
+          'El producto solicitado no fue encontrado.',
+          'NF',
+        );
 
       return await this.productRepository.delete({
         id,
@@ -87,6 +127,5 @@ export class ProductsService {
     } catch (error) {
       this.commonService.handleExceptions(error.message, 'BR');
     }
-
   }
 }

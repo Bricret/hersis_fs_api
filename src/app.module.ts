@@ -8,6 +8,7 @@ import { SaleDetailModule } from './sale_detail/sale_detail.module';
 import { CategoryModule } from './category/category.module';
 import { UsersModule } from './users/users.module';
 import { TransactionHistoryModule } from './transaction_history/transaction_history.module';
+import { SuppliersModule } from './suppliers/suppliers.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { TransactionHistoryModule } from './transaction_history/transaction_hist
     CategoryModule,
     UsersModule,
     TransactionHistoryModule,
+    SuppliersModule,
   ],
   controllers: [],
   providers: [],
