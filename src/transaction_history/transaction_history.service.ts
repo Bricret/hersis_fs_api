@@ -1,26 +1,40 @@
 import { Injectable } from '@nestjs/common';
 import { CreateTransactionHistoryDto } from './dto/create-transaction_history.dto';
-import { UpdateTransactionHistoryDto } from './dto/update-transaction_history.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { TransactionHistory } from './entities/transaction_history.entity';
+import { Repository } from 'typeorm';
+import { CommonService } from '../common/common.service';
 
 @Injectable()
 export class TransactionHistoryService {
-  create(createTransactionHistoryDto: CreateTransactionHistoryDto) {
-    return 'This action adds a new transactionHistory';
+  constructor(
+    @InjectRepository(TransactionHistory)
+    private transactionHistoryRepository: Repository<TransactionHistory>,
+
+    private readonly CommonService: CommonService,
+  ) {}
+
+  async logTransaction(
+    createTransactionHistoryDto: CreateTransactionHistoryDto,
+  ) {
+    try {
+      const NewTransaction = this.transactionHistoryRepository.create(
+        createTransactionHistoryDto,
+      );
+
+      await this.transactionHistoryRepository.save(NewTransaction);
+
+      return NewTransaction;
+    } catch (error) {
+      this.CommonService.handleExceptions(error, 'BR');
+    }
   }
 
-  findAll() {
-    return `This action returns all transactionHistory`;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} transactionHistory`;
-  }
-
-  update(id: number, updateTransactionHistoryDto: UpdateTransactionHistoryDto) {
-    return `This action updates a #${id} transactionHistory`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} transactionHistory`;
+  async findAll() {
+    try {
+      return await this.transactionHistoryRepository.find();
+    } catch (error) {
+      this.CommonService.handleExceptions(error, 'BR');
+    }
   }
 }
