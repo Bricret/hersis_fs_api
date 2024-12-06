@@ -7,12 +7,14 @@ import { Repository } from 'typeorm';
 import { CommonService } from 'src/common/common.service';
 import { InventoryEntriesDto } from './dto/inventory_entries.dto';
 import { BulkInventoryEntryDto } from './dto';
+import { CategoryService } from 'src/category/category.service';
 
 @Injectable()
 export class ProductsService {
   constructor(
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    private readonly categorieService: CategoryService,
     private readonly commonService: CommonService,
   ) {}
 
@@ -22,10 +24,15 @@ export class ProductsService {
         where: { name: createProductDto.name },
       });
 
+      const categorie = await this.categorieService.findOne(createProductDto.categories_id);
+
       if (productExist) throw new Error('Product already exists');
 
       const product = this.productRepository.create(createProductDto);
-      await this.productRepository.save(product);
+      await this.productRepository.save({
+        ...product,
+        category: categorie,
+      });
       return product;
     } catch (error) {
       this.commonService.handleExceptions(error.message, 'BR');

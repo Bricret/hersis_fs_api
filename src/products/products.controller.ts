@@ -10,6 +10,7 @@ export class ProductsController {
   create(@Body() createProductDto: CreateProductDto) {
     return this.productsService.create(createProductDto);
   }
+  
   @Post('/inventory-entries')
   async createBulkInventoryEntries(@Body() bulkEntryDto: BulkInventoryEntryDto) {
     return this.productsService.addBulkInventoryEntries(bulkEntryDto);

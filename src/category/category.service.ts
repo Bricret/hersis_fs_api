@@ -34,6 +34,15 @@ export class CategoryService {
     } catch (error) {
       this.commonService.handleExceptions(error.message, 'BR');
     }
+  }
 
+  async findOne(id: number) {
+    try {
+      return await this.categoryRepository.findOne({
+        where: { id },
+      });
+    } catch (error) {
+      this.commonService.handleExceptions(error.message, 'BR');
+    }
   }
 }

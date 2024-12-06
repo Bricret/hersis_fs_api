@@ -4,13 +4,12 @@ import { ProductsController } from './products.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Product } from './entities/product.entity';
 import { CommonModule } from 'src/common/common.module';
+import { CategoryModule } from 'src/category/category.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      Product
-    ]),
-
+    TypeOrmModule.forFeature([Product]), // Solo registra el repositorio de Product
+    CategoryModule, // Importa el módulo de categorías
     CommonModule,
   ],
   controllers: [ProductsController],

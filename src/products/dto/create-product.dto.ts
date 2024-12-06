@@ -1,5 +1,6 @@
-import { IsDate, IsNotEmpty, IsNumber, IsString } from "class-validator";
+import { IsDateString, IsNotEmpty, IsNumber, IsString } from "class-validator";
 
+//TODO: Implementar utilizacion de reduccion de costos y logs de peticiones
 export class CreateProductDto {
 
     @IsString()
@@ -14,12 +15,22 @@ export class CreateProductDto {
     @IsNumber()
     price: number;
 
+    @IsNumber()
+    @IsNotEmpty()
+    categories_id: number;
+
+    @IsNumber()
+    cost_price: number;
+
+    @IsNumber()
+    units_per_blister?: number;
+
     @IsNotEmpty()
     @IsNumber()
     quantity: number;
 
     @IsNotEmpty()
-    @IsDate()
-    expiration_date: Date;
+    @IsDateString()
+    expiration_date: string;
 
 }

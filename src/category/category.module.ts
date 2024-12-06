@@ -7,12 +7,11 @@ import { CommonModule } from 'src/common/common.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      Category
-    ]),
-    CommonModule
+    TypeOrmModule.forFeature([Category]), // Registra el repositorio
+    CommonModule,
   ],
   controllers: [CategoryController],
   providers: [CategoryService],
+  exports: [CategoryService],
 })
 export class CategoryModule {}
