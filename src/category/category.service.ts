@@ -18,6 +18,12 @@ export class CategoryService {
 
   async create(createCategoryDto: CreateCategoryDto) {
 
+    const categoryExist = await this.categoryRepository.findOne({
+      where: { name: createCategoryDto.name },
+    });
+
+    if (categoryExist) this.commonService.handleExceptions('Esta categoria ya existe.', 'BR');
+
     try {
       const category = this.categoryRepository.create(createCategoryDto);
       await this.categoryRepository.save(category);

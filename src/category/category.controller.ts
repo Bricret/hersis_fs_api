@@ -15,4 +15,9 @@ export class CategoryController {
   findAll() {
     return this.categoryService.findAll();
   }
+
+  @Get(':id')
+  findOne(id: number) {
+    return this.categoryService.findOne(id);
+  }
 }
