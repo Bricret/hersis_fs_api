@@ -18,6 +18,8 @@ export class ProductsService {
     private readonly commonService: CommonService,
   ) {}
 
+
+  //TODO: Realizar pruebas de ventas y refill de inventario. Para probar el comportamiento de los precios promedios y si se actualizan correctamente.
   async create(createProductDto: CreateProductDto): Promise<Product> {
     try {
       const productExist = await this.productRepository.findOne({
@@ -39,6 +41,7 @@ export class ProductsService {
     }
   }
 
+  // Funcion para agregar una entrada de inventario a un producto en especifico.
   async addInventoryEntry(createEntryDto: InventoryEntriesDto) {
     const product = await this.productRepository.findOneBy({
       id: createEntryDto.productId,
@@ -62,11 +65,15 @@ export class ProductsService {
       newCostPrice,
     );
 
-    await this.productRepository.save(product);
+    await this.productRepository.save({
+      ...product,
+      expiration_date: createEntryDto.expirationDate,
+    });
 
     return { message: 'Inventario actualizado exitosamente.', product };
   }
 
+  // Funcion para agregar multiples entradas de inventario a multiples productos.
   async addBulkInventoryEntries(bulkEntryDto: BulkInventoryEntryDto) {
     const results = [];
 
@@ -84,6 +91,10 @@ export class ProductsService {
         const data = await this.addInventoryEntry(entry);
         results.push(data);
     }
+
+    return {
+      message: 'Inventario actualizado correctamente.',
+    };
 
   }
 

@@ -18,14 +18,14 @@ export class Product {
   @Column()
   price: number;
 
-  @Column()
-  cost_price: number;
+  @Column({ nullable: true })
+  cost_price?: number;
 
   @Column()
   quantity: number;
 
   @Column({ nullable: true })
-  units_per_blister: number;
+  units_per_blister?: number;
 
   @Column()
   expiration_date: Date;
