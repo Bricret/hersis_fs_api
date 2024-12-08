@@ -1,6 +1,5 @@
 import { IsDateString, IsNotEmpty, IsNumber, IsString } from "class-validator";
 
-//TODO: Implementar utilizacion de reduccion de costos y logs de peticiones
 export class CreateProductDto {
 
     @IsString()
