@@ -23,6 +23,7 @@ import {
     @Column({ nullable: true })
     description: string; // Descripción de la acción realizada
   
+    //TODO: Cambiar a relación con la tabla de usuarios
     @Column({ nullable: true })
     userId: string; // ID del usuario que realizó la acción
   

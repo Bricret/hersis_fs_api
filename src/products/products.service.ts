@@ -8,6 +8,7 @@ import { CommonService } from 'src/common/common.service';
 import { InventoryEntriesDto } from './dto/inventory_entries.dto';
 import { BulkInventoryEntryDto } from './dto';
 import { CategoryService } from 'src/category/category.service';
+import { LogsService } from 'src/logs/logs.service';
 
 @Injectable()
 export class ProductsService {
@@ -16,10 +17,10 @@ export class ProductsService {
     private readonly productRepository: Repository<Product>,
     private readonly categorieService: CategoryService,
     private readonly commonService: CommonService,
+    private readonly logsService: LogsService,
   ) {}
 
 
-  //TODO: Realizar pruebas de ventas y refill de inventario. Para probar el comportamiento de los precios promedios y si se actualizan correctamente.
   async create(createProductDto: CreateProductDto): Promise<Product> {
     try {
       const productExist = await this.productRepository.findOne({
@@ -35,6 +36,16 @@ export class ProductsService {
         ...product,
         category: categorie,
       });
+
+      //Log de creación de producto
+      await this.logsService.createLog({
+        action: 'create',
+        entity: 'product',
+        description: `Producto ${product.name} creado exitosamente.`,
+        userId: '1',
+        timestamp: new Date(),
+      });
+
       return product;
     } catch (error) {
       this.commonService.handleExceptions(error.message, 'BR');
