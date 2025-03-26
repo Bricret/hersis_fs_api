@@ -24,6 +24,9 @@ export class Product {
   @Column()
   quantity: number;
 
+  @Column()
+  barCode: string;
+
   @Column({ nullable: true })
   units_per_blister?: number;
 
