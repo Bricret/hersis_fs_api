@@ -9,6 +9,7 @@ import { CategoryModule } from './category/category.module';
 import { UsersModule } from './users/users.module';
 import { TransactionHistoryModule } from './transaction_history/transaction_history.module';
 import { LogsModule } from './logs/logs.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { LogsModule } from './logs/logs.module';
     UsersModule,
     TransactionHistoryModule,
     LogsModule,
+    AuthModule,
   ],
   controllers: [],
   providers: [],

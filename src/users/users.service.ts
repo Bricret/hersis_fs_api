@@ -15,11 +15,9 @@ export class UsersService {
 
     private readonly commonService: CommonService,
   ) {}
-  //TODO: Implementar la auth con JWT.
 
   async create(createUserDto: CreateUserDto) {
     try {
-
       // Verificar si el nombre de usuario ya está en uso
       const findUser = await this.findUserByUsername(createUserDto.username);
       if (findUser) {
@@ -28,21 +26,24 @@ export class UsersService {
           'BR',
         );
       }
-  
+
       const saltRounds = 10;
-      const hashedPassword = await bcrypt.hash(createUserDto.password, saltRounds);
-  
+      const hashedPassword = await bcrypt.hash(
+        createUserDto.password,
+        saltRounds,
+      );
+
       const user = this.userRepository.create({
         ...createUserDto,
         password: hashedPassword,
       });
-  
+
       await this.userRepository.save(user);
       delete user.password;
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password, ...result } = user;
-  
+
       return result;
     } catch (error) {
       this.commonService.handleExceptions(error, 'BR');
@@ -94,6 +95,20 @@ export class UsersService {
 
       await this.userRepository.update(id, { isActive: false });
       return await this.findOne(id);
+    } catch (error) {
+      this.commonService.handleExceptions(error, 'BR');
+    }
+  }
+
+  async isUserActive(id: string) {
+    try {
+      const user = await this.userRepository.findOne({
+        where: {
+          id,
+          isActive: true,
+        },
+      });
+      return user ? true : false;
     } catch (error) {
       this.commonService.handleExceptions(error, 'BR');
     }
