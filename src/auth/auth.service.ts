@@ -17,10 +17,10 @@ export class AuthService {
   ) {}
 
   // Método para validar usuario durante el login
-  async validateUser(email: string, password: string): Promise<User | null> {
+  async validateUser(username: string, password: string): Promise<User | null> {
     const user = await this.usersRepository.findOne({
-      where: { email },
-      select: ['id', 'email', 'password', 'role', 'isActive'], // Selecciona campos necesarios incluyendo password
+      where: { username },
+      select: ['id', 'email', 'password', 'role', 'isActive', 'name'], // Selecciona campos necesarios incluyendo password
     });
 
     if (!user) this.commonService.handleExceptions('Credenciales inválidas', 'BR');
@@ -46,11 +46,17 @@ export class AuthService {
       email: user.email,
       sub: user.id,
       role: user.role,
-      isActive: user.isActive
+      isActive: user.isActive,
+      name: user.name
     }
     return {
-      accessToken: this.jwtService.sign(payload),
-      role: user.role
+      data: payload,
+      accessToken: this.jwtService.sign(payload)
     }
+  }
+
+  async logOut() {
+
+
   }
 }

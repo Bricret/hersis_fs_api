@@ -30,7 +30,16 @@ export class User {
     @Column({ default: true })
     isActive: boolean;
 
+    @Column({nullable: true})
+    lastLogin: Date;
+
     @OneToMany(() => TransactionHistory, transactionHistory => transactionHistory.user)
     transactions: TransactionHistory[];
 
+}
+
+
+export enum UserRole {
+    ADMIN = 'admin',
+    USER = 'user'
 }
