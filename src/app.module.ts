@@ -10,6 +10,7 @@ import { UsersModule } from './users/users.module';
 import { TransactionHistoryModule } from './transaction_history/transaction_history.module';
 import { LogsModule } from './logs/logs.module';
 import { AuthModule } from './auth/auth.module';
+import { BranchesModule } from './branches/branches.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { AuthModule } from './auth/auth.module';
     TransactionHistoryModule,
     LogsModule,
     AuthModule,
+    BranchesModule,
   ],
   controllers: [],
   providers: [],
