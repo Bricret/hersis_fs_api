@@ -37,6 +37,7 @@ export class AuthService {
 
     // Excluye el password antes de retornar
     const { password: _, ...safeUser } = user;
+    await this.usersRepository.update(user.id, { lastLogin: new Date() });
     return safeUser as User;
   }
 

@@ -52,7 +52,14 @@ export class UsersService {
 
   async findAll() {
     try {
-      return await this.userRepository.find();
+      const users = await this.userRepository.find({
+        select: ['id', 'username', 'email', 'role', 'isActive', 'name', 'lastLogin'],
+      });
+
+      return users.map(user => {
+        const { password, ...result } = user;
+        return result;
+      });
     } catch (error) {
       this.commonService.handleExceptions(error, 'NF');
     }
