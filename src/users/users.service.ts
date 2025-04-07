@@ -3,9 +3,10 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
-import { Repository } from 'typeorm';
+import { Repository, Like } from 'typeorm';
 import { CommonService } from 'src/common/common.service';
 import * as bcrypt from 'bcrypt';
+import { FindUsersDto } from './dto/find-users.dto';
 
 @Injectable()
 export class UsersService {
@@ -19,10 +20,10 @@ export class UsersService {
   async create(createUserDto: CreateUserDto) {
     try {
       // Verificar si el nombre de usuario ya está en uso
-      const findUser = await this.findUserByUsername(createUserDto.username);
+      const findUser = await this.findUserByUsernameAndEmail(createUserDto.username, createUserDto.email);
       if (findUser) {
         this.commonService.handleExceptions(
-          'El nombre de usuario ya está ocupado.',
+          'El nombre de usuario o email ya está ocupado.',
           'BR',
         );
       }
@@ -41,8 +42,7 @@ export class UsersService {
       await this.userRepository.save(user);
       delete user.password;
 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { password, ...result } = user;
+      const { password, transactions, ...result } = user;
 
       return result;
     } catch (error) {
@@ -50,16 +50,34 @@ export class UsersService {
     }
   }
 
-  async findAll() {
+  async findAll(findUsersDto: FindUsersDto) {
     try {
-      const users = await this.userRepository.find({
-        select: ['id', 'username', 'email', 'role', 'isActive', 'name', 'lastLogin'],
-      });
-
-      return users.map(user => {
-        const { password, ...result } = user;
-        return result;
-      });
+      const { search, page = 1, limit = 10 } = findUsersDto;
+      
+      const queryBuilder = this.userRepository.createQueryBuilder('user');
+      
+      if (search) {
+        queryBuilder.where('user.name LIKE :search OR user.email LIKE :search OR user.username LIKE :search', 
+          { search: `%${search}%` });
+      }
+      
+      const skip = (page - 1) * limit;
+      
+      const [users, total] = await queryBuilder
+        .select(['user.id', 'user.username', 'user.email', 'user.role', 'user.isActive', 'user.name', 'user.lastLogin'])
+        .skip(skip)
+        .take(limit)
+        .getManyAndCount();
+      
+      return {
+        data: users,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit)
+        }
+      };
     } catch (error) {
       this.commonService.handleExceptions(error, 'NF');
     }
@@ -73,11 +91,12 @@ export class UsersService {
     });
   }
 
-  async findUserByUsername(userName: string) {
+  async findUserByUsernameAndEmail(userName: string, email: string) {
     try {
       return await this.userRepository.findOne({
         where: {
           username: userName,
+          email: email,
         },
       });
     } catch (error) {

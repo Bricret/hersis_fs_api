@@ -16,7 +16,11 @@ export class CreateUserDto {
     password: string;
 
     @IsString()
-    @IsIn(['admin', 'user'])
+    @IsIn(['admin', 'user', 'pharmacist'])
     role: string;
+
+    @IsString()
+    @IsIn(['sucursal_1', 'sucursal_2'])
+    branch: string;
 
 }
