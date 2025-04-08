@@ -29,7 +29,12 @@ export class UsersController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
+  SwitchStatus(@Param('id') id: string) {
     return this.usersService.disableUserAccount(id);
+  }
+
+  @Patch('/resetPassword/:id')
+  resetPassword(@Param('id') id: string) {
+    return this.usersService.resetPassword(id);
   }
 }

@@ -84,11 +84,17 @@ export class UsersService {
   }
 
   async findOne(id: string) {
-    return await this.userRepository.findOne({
+    const res = await this.userRepository.findOne({
       where: {
         id,
       },
     });
+
+    if (!res) {
+      this.commonService.handleExceptions('Usuario no encontrado', 'NF');
+    }
+
+    return res;
   }
 
   async findUserByUsernameAndEmail(userName: string, email: string) {
@@ -107,9 +113,10 @@ export class UsersService {
   async update(id: string, updateUserDto: UpdateUserDto) {
     try {
       await this.findOne(id);
-
       await this.userRepository.update(id, updateUserDto);
-      return await this.findOne(id);
+      return {
+        message: 'Usuario actualizado correctamente',
+      }
     } catch (error) {
       this.commonService.handleExceptions(error, 'BR');
     }
@@ -117,10 +124,32 @@ export class UsersService {
 
   async disableUserAccount(id: string) {
     try {
-      await this.findOne(id);
+      const user = await this.findOne(id);
+      await this.userRepository.update(id, { isActive: !user.isActive });
+      if (user.isActive) {
+        return {
+          message: 'Usuario desactivado correctamente',
+        }
+      } else {
+        return {
+          message: 'Usuario activado correctamente',
+        }
+      }
+    } catch (error) {
+      this.commonService.handleExceptions(error, 'BR');
+    }
+  } 
 
-      await this.userRepository.update(id, { isActive: false });
-      return await this.findOne(id);
+  async resetPassword(id: string) {
+    try {
+      await this.findOne(id);
+      const newPassword = Math.random().toString(36).substring(2, 15);
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await this.userRepository.update(id, { password: hashedPassword });
+      return {
+        message: 'Contraseña restablecida correctamente',
+        newPassword: newPassword,
+      }
     } catch (error) {
       this.commonService.handleExceptions(error, 'BR');
     }
