@@ -52,13 +52,27 @@ export class UsersService {
 
   async findAll(findUsersDto: FindUsersDto) {
     try {
-      const { search, page = 1, limit = 10 } = findUsersDto;
+      const { search, page = 1, limit = 5 } = findUsersDto;
       
       const queryBuilder = this.userRepository.createQueryBuilder('user');
       
-      if (search) {
+      if (search.length > 1) {
         queryBuilder.where('user.name LIKE :search OR user.email LIKE :search OR user.username LIKE :search', 
           { search: `%${search}%` });
+        
+        const users = await queryBuilder
+          .select(['user.id', 'user.username', 'user.email', 'user.role', 'user.isActive', 'user.name', 'user.lastLogin'])
+          .getMany();
+        
+        return {
+          data: users,
+          meta: {
+            total: users.length,
+            page: 1,
+            limit: users.length,
+            totalPages: 1
+          }
+        };
       }
       
       const skip = (page - 1) * limit;
