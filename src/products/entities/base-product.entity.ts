@@ -44,5 +44,8 @@ export abstract class BaseProduct {
   @ManyToOne(() => Category)
   @JoinColumn({ name: 'category_id' })
   category: Category;
-  
+
+  @ManyToOne('Branch', 'generalProducts')
+  @JoinColumn({ name: 'branch_id' })
+  branch: any;
 } 

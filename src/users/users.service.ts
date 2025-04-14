@@ -7,13 +7,15 @@ import { Repository, Like } from 'typeorm';
 import { CommonService } from 'src/common/common.service';
 import * as bcrypt from 'bcrypt';
 import { FindUsersDto } from './dto/find-users.dto';
+import { Branch } from 'src/branches/intities/branches.entity';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
-
+    @InjectRepository(Branch)
+    private branchRepository: Repository<Branch>,
     private readonly commonService: CommonService,
   ) {}
 
@@ -28,6 +30,18 @@ export class UsersService {
         );
       }
 
+      // Buscar la sucursal
+      const branch = await this.branchRepository.findOne({
+        where: { id: createUserDto.branch }
+      });
+
+      if (!branch) {
+        this.commonService.handleExceptions(
+          'La sucursal especificada no existe.',
+          'BR',
+        );
+      }
+
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(
         createUserDto.password,
@@ -37,6 +51,7 @@ export class UsersService {
       const user = this.userRepository.create({
         ...createUserDto,
         password: hashedPassword,
+        branch: branch
       });
 
       await this.userRepository.save(user);
@@ -54,14 +69,25 @@ export class UsersService {
     try {
       const { search, page = 1, limit = 5 } = findUsersDto;
       
-      const queryBuilder = this.userRepository.createQueryBuilder('user');
+      const queryBuilder = this.userRepository.createQueryBuilder('user')
+        .leftJoinAndSelect('user.branch', 'branch');
       
       if (search.length > 1) {
         queryBuilder.where('user.name LIKE :search OR user.email LIKE :search OR user.username LIKE :search', 
           { search: `%${search}%` });
         
         const users = await queryBuilder
-          .select(['user.id', 'user.username', 'user.email', 'user.role', 'user.isActive', 'user.name', 'user.lastLogin'])
+          .select([
+            'user.id', 
+            'user.username', 
+            'user.email', 
+            'user.role', 
+            'user.isActive', 
+            'user.name', 
+            'user.lastLogin',
+            'branch.id',
+            'branch.name'
+          ])
           .getMany();
         
         return {
@@ -78,7 +104,17 @@ export class UsersService {
       const skip = (page - 1) * limit;
       
       const [users, total] = await queryBuilder
-        .select(['user.id', 'user.username', 'user.email', 'user.role', 'user.isActive', 'user.name', 'user.lastLogin'])
+        .select([
+          'user.id', 
+          'user.username', 
+          'user.email', 
+          'user.role', 
+          'user.isActive', 
+          'user.name', 
+          'user.lastLogin',
+          'branch.id',
+          'branch.name'
+        ])
         .skip(skip)
         .take(limit)
         .getManyAndCount();
@@ -99,9 +135,8 @@ export class UsersService {
 
   async findOne(id: string) {
     const res = await this.userRepository.findOne({
-      where: {
-        id,
-      },
+      where: { id },
+      relations: ['branch']
     });
 
     if (!res) {
@@ -126,8 +161,32 @@ export class UsersService {
 
   async update(id: string, updateUserDto: UpdateUserDto) {
     try {
-      await this.findOne(id);
-      await this.userRepository.update(id, updateUserDto);
+      const user = await this.findOne(id);
+      
+      if (updateUserDto.branch) {
+        const branch = await this.branchRepository.findOne({
+          where: { id: updateUserDto.branch }
+        });
+
+        if (!branch) {
+          this.commonService.handleExceptions(
+            'La sucursal especificada no existe.',
+            'BR',
+          );
+        }
+
+        user.branch = branch;
+      }
+
+      // Eliminar la propiedad branch del DTO para evitar conflictos
+      const { branch, ...updateData } = updateUserDto;
+
+      // Actualizar el usuario
+      await this.userRepository.update(id, {
+        ...updateData,
+        branch: user.branch
+      });
+
       return {
         message: 'Usuario actualizado correctamente',
       }

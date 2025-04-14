@@ -1,6 +1,6 @@
 import { User } from "src/users/entities/user.entity";
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
-
+import { Branch } from "src/branches/intities/branches.entity";
 
 @Entity({ name: 'transaction_history' })
 export class TransactionHistory {
@@ -10,6 +10,9 @@ export class TransactionHistory {
 
     @ManyToOne(() => User, user => user.transactions)
     user: User;
+
+    @ManyToOne(() => Branch, branch => branch.transactions)
+    branch: Branch;
 
     @Column()
     action: string;

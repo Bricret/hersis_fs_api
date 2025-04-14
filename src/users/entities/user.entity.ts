@@ -1,5 +1,6 @@
 import { TransactionHistory } from "src/transaction_history/entities/transaction_history.entity";
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Branch } from "src/branches/intities/branches.entity";
 
 @Entity({
     name: 'user'
@@ -32,6 +33,9 @@ export class User {
 
     @Column({nullable: true})
     lastLogin: Date;
+
+    @ManyToOne(() => Branch, branch => branch.users)
+    branch: Branch;
 
     @OneToMany(() => TransactionHistory, transactionHistory => transactionHistory.user)
     transactions: TransactionHistory[];
