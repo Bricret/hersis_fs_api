@@ -11,6 +11,7 @@ import { TransactionHistoryModule } from './transaction_history/transaction_hist
 import { LogsModule } from './logs/logs.module';
 import { AuthModule } from './auth/auth.module';
 import { BranchesModule } from './branches/branches.module';
+import { PresentationModule } from './presentation/presentation.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { BranchesModule } from './branches/branches.module';
     LogsModule,
     AuthModule,
     BranchesModule,
+    PresentationModule,
   ],
   controllers: [],
   providers: [],
