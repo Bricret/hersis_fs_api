@@ -1,11 +1,9 @@
-import { BaseProduct } from 'src/products/entities/base-product.entity';
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity({
     name: 'categories'
 })
 export class Category {
-
     @PrimaryGeneratedColumn('increment')
     id: number;
 
@@ -14,8 +12,4 @@ export class Category {
     
     @Column()
     description: string;
-
-    @OneToMany(() => BaseProduct, (product) => product.category)
-    products: BaseProduct[];
-
 }

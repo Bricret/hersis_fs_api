@@ -1,11 +1,7 @@
 import { Category } from 'src/category/entities/category.entity';
-import { SaleDetail } from 'src/sale_detail/entities/sale_detail.entity';
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 
-@Entity({
-  name: 'base_products',
-})
-export class BaseProduct {
+export abstract class BaseProduct {
   @PrimaryGeneratedColumn('increment')
   id: bigint;
 
@@ -45,12 +41,8 @@ export class BaseProduct {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
   updated_at: Date;
 
-  @OneToMany(() => SaleDetail, (saleDetail) => saleDetail.product, {
-    cascade: true,
-  })
-  saleDetails: SaleDetail[];
-
-  @ManyToOne(() => Category, (category) => category.products)
+  @ManyToOne(() => Category)
   @JoinColumn({ name: 'category_id' })
   category: Category;
+  
 } 
