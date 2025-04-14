@@ -1,112 +1,193 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { BaseProduct } from './entities/base-product.entity';
+import { Medicine } from './entities/medicine.entity';
+import { GeneralProduct } from './entities/general-product.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Product } from './entities/product.entity';
-import { Repository } from 'typeorm';
+import { BulkInventoryEntryDto } from './dto/bulk-inventory-entry.dto';
 import { CommonService } from 'src/common/common.service';
-import { InventoryEntriesDto } from './dto/inventory_entries.dto';
-import { BulkInventoryEntryDto } from './dto';
 import { CategoryService } from 'src/category/category.service';
 import { LogsService } from 'src/logs/logs.service';
 
 @Injectable()
 export class ProductsService {
   constructor(
-    @InjectRepository(Product)
-    private readonly productRepository: Repository<Product>,
+    @InjectRepository(BaseProduct)
+    private baseProductRepository: Repository<BaseProduct>,
+    @InjectRepository(Medicine)
+    private medicineRepository: Repository<Medicine>,
+    @InjectRepository(GeneralProduct)
+    private generalProductRepository: Repository<GeneralProduct>,
     private readonly categorieService: CategoryService,
     private readonly commonService: CommonService,
     private readonly logsService: LogsService,
   ) {}
 
-
-  async create(createProductDto: CreateProductDto): Promise<Product> {
+  async create(createProductDto: CreateProductDto) {
     try {
-      const productExist = await this.productRepository.findOne({
-        where: { name: createProductDto.name },
-      });
+      const category = await this.categorieService.findOne(createProductDto.category_id);
 
-      const categorie = await this.categorieService.findOne(createProductDto.categories_id);
+      if (createProductDto.type === 'medicine') {
+        const medicine = this.medicineRepository.create(createProductDto);
+        await this.medicineRepository.save({
+          ...medicine,
+          category,
+        });
 
-      if (productExist) throw new Error('Product already exists');
+        await this.logsService.createLog({
+          action: 'create',
+          entity: 'medicine',
+          description: `Medicamento ${medicine.name} creado exitosamente.`,
+          userId: '1',
+          timestamp: new Date(),
+        });
 
-      const product = this.productRepository.create(createProductDto);
-      await this.productRepository.save({
-        ...product,
-        category: categorie,
-      });
+        return medicine;
+      } else {
+        const generalProduct = this.generalProductRepository.create(createProductDto);
+        await this.generalProductRepository.save({
+          ...generalProduct,
+          category,
+        });
 
-      //Log de creación de producto
-      await this.logsService.createLog({
-        action: 'create',
-        entity: 'product',
-        description: `Producto ${product.name} creado exitosamente.`,
-        userId: '1',
-        timestamp: new Date(),
-      });
+        await this.logsService.createLog({
+          action: 'create',
+          entity: 'general_product',
+          description: `Producto general ${generalProduct.name} creado exitosamente.`,
+          userId: '1',
+          timestamp: new Date(),
+        });
 
-      return product;
+        return generalProduct;
+      }
     } catch (error) {
       this.commonService.handleExceptions(error.message, 'BR');
     }
   }
 
-  // Funcion para agregar una entrada de inventario a un producto en especifico.
-  async addInventoryEntry(createEntryDto: InventoryEntriesDto) {
-    const product = await this.productRepository.findOneBy({
-      id: createEntryDto.productId,
-    });
-    if (!product)
-      this.commonService.handleExceptions(
-        'El producto solicitado no fue encontrado.',
-        'NF',
-      );
-
-    const newQuantity = createEntryDto.quantity;
-    const newCostPrice = product.cost_price;
-    const stockQuantity = product.quantity;
-    const currentAverageCost = product.cost_price;
-
-    product.quantity += newQuantity;
-    product.cost_price = this.calculateNewAverageCost(
-      stockQuantity,
-      currentAverageCost,
-      newQuantity,
-      newCostPrice,
-    );
-
-    await this.productRepository.save({
-      ...product,
-      expiration_date: createEntryDto.expirationDate,
-    });
-
-    return { message: 'Inventario actualizado exitosamente.', product };
+  async findAll() {
+    try {
+      const medicines = await this.medicineRepository.find();
+      const generalProducts = await this.generalProductRepository.find();
+      return [...medicines, ...generalProducts];
+    } catch (error) {
+      this.commonService.handleExceptions(error.message, 'BR');
+    }
   }
 
-  // Funcion para agregar multiples entradas de inventario a multiples productos.
+  async findOne(id: bigint) {
+    try {
+      const medicine = await this.medicineRepository.findOne({ where: { id } });
+      if (medicine) return medicine;
+
+      const generalProduct = await this.generalProductRepository.findOne({ where: { id } });
+      if (!generalProduct) {
+        this.commonService.handleExceptions('El producto solicitado no fue encontrado.', 'NF');
+      }
+      return generalProduct;
+    } catch (error) {
+      this.commonService.handleExceptions(error.message, 'NF');
+    }
+  }
+
+  async update(id: bigint, updateProductDto: UpdateProductDto) {
+    try {
+      const medicine = await this.medicineRepository.findOne({ where: { id } });
+      if (medicine) {
+        await this.medicineRepository.update({ id }, updateProductDto);
+        return this.medicineRepository.findOne({ where: { id } });
+      }
+
+      const generalProduct = await this.generalProductRepository.findOne({ where: { id } });
+      if (!generalProduct) {
+        this.commonService.handleExceptions('El producto solicitado no fue encontrado.', 'NF');
+      }
+      return this.generalProductRepository.update({id}, updateProductDto);
+    } catch (error) {
+      this.commonService.handleExceptions(error.message, 'BR');
+    }
+  }
+
+  async remove(id: bigint) {
+    try {
+      const medicine = await this.medicineRepository.findOne({ where: { id } });
+      if (medicine) {
+        return this.medicineRepository.remove(medicine);
+      }
+
+      const generalProduct = await this.generalProductRepository.findOne({ where: { id } });
+      if (!generalProduct) {
+        this.commonService.handleExceptions('El producto solicitado no fue encontrado.', 'NF');
+      }
+      return this.generalProductRepository.remove(generalProduct);
+    } catch (error) {
+      this.commonService.handleExceptions(error.message, 'BR');
+    }
+  }
+
+  async addInventoryEntry(entry: { productId: bigint; quantity: number; expirationDate: Date }) {
+    try {
+      const product = await this.findOne(entry.productId);
+      if (!product) {
+        this.commonService.handleExceptions('El producto solicitado no fue encontrado.', 'NF');
+      }
+
+      const newQuantity = entry.quantity;
+      const newCostPrice = product.purchase_price;
+      const stockQuantity = product.initial_quantity;
+      const currentAverageCost = product.purchase_price;
+
+      product.initial_quantity += newQuantity;
+      product.purchase_price = this.calculateNewAverageCost(
+        stockQuantity,
+        currentAverageCost,
+        newQuantity,
+        newCostPrice,
+      );
+
+      if (product instanceof Medicine) {
+        await this.medicineRepository.save({
+          ...product,
+          expiration_date: entry.expirationDate,
+        });
+      } else {
+        await this.generalProductRepository.save({
+          ...product,
+          expiration_date: entry.expirationDate,
+        });
+      }
+
+      return { message: 'Inventario actualizado exitosamente.', product };
+    } catch (error) {
+      this.commonService.handleExceptions(error.message, 'BR');
+    }
+  }
+
   async addBulkInventoryEntries(bulkEntryDto: BulkInventoryEntryDto) {
-    const results = [];
+    try {
+      const results = [];
 
-    for (const entry of bulkEntryDto.entries) {
-      const product = await this.productRepository.findOne({
-        where: { id: entry.productId },
-      });
-
-      if (!product)
-        this.commonService.handleExceptions(
-          `El producto ${entry.productId} no fue encontrado.`,
-          'NF',
-        );
+      for (const entry of bulkEntryDto.entries) {
+        const product = await this.findOne(entry.productId);
+        if (!product) {
+          this.commonService.handleExceptions(
+            `El producto ${entry.productId} no fue encontrado.`,
+            'NF',
+          );
+        }
 
         const data = await this.addInventoryEntry(entry);
         results.push(data);
+      }
+
+      return {
+        message: 'Inventario actualizado correctamente.',
+      };
+    } catch (error) {
+      this.commonService.handleExceptions(error.message, 'BR');
     }
-
-    return {
-      message: 'Inventario actualizado correctamente.',
-    };
-
   }
 
   private calculateNewAverageCost(
@@ -119,63 +200,5 @@ export class ProductsService {
       currentAverageCost * (currentStock - newQuantity) +
       newCostPrice * newQuantity;
     return totalValue / currentStock;
-  }
-
-  async findAll() {
-    try {
-      return await this.productRepository.find();
-    } catch (error) {
-      this.commonService.handleExceptions(error.message, 'BR');
-    }
-  }
-
-  async findOne(id: bigint) {
-    try {
-      return await this.productRepository.findOne({
-        where: { id },
-      });
-    } catch (error) {
-      this.commonService.handleExceptions(error.message, 'NF');
-    }
-  }
-
-  async update(id: bigint, updateProductDto: UpdateProductDto) {
-    try {
-      const findProduct = await this.productRepository.findOne({
-        where: { id },
-      });
-
-      if (!findProduct)
-        this.commonService.handleExceptions(
-          'El producto solicitado no fue encontrado.',
-          'NF',
-        );
-
-      const product = this.productRepository.create(updateProductDto);
-      product.id = id;
-      return await this.productRepository.save(product);
-    } catch (error) {
-      this.commonService.handleExceptions(error.message, 'BR');
-    }
-  }
-
-  async remove(id: bigint) {
-    try {
-      const product = await this.productRepository.findOne({
-        where: { id },
-      });
-
-      if (!product)
-        this.commonService.handleExceptions(
-          'El producto solicitado no fue encontrado.',
-          'NF',
-        );
-
-      return await this.productRepository.delete({
-        id,
-      });
-    } catch (error) {
-      this.commonService.handleExceptions(error.message, 'BR');
-    }
   }
 }

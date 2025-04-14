@@ -3,9 +3,9 @@ import { SaleDetail } from 'src/sale_detail/entities/sale_detail.entity';
 import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity({
-  name: 'products',
+  name: 'base_products',
 })
-export class Product {
+export class BaseProduct {
   @PrimaryGeneratedColumn('increment')
   id: bigint;
 
@@ -16,22 +16,34 @@ export class Product {
   description: string;
 
   @Column()
-  price: number;
-
-  @Column({ nullable: true })
-  cost_price?: number;
+  sales_price: number;
 
   @Column()
-  quantity: number;
+  purchase_price: number;
+
+  @Column()
+  initial_quantity: number;
 
   @Column()
   barCode: string;
 
-  @Column({ nullable: true })
-  units_per_blister?: number;
+  @Column()
+  units_per_box: number;
+
+  @Column()
+  lot_number: string;
 
   @Column()
   expiration_date: Date;
+
+  @Column({ default: true })
+  is_active: boolean;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  created_at: Date;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
+  updated_at: Date;
 
   @OneToMany(() => SaleDetail, (saleDetail) => saleDetail.product, {
     cascade: true,
@@ -39,6 +51,6 @@ export class Product {
   saleDetails: SaleDetail[];
 
   @ManyToOne(() => Category, (category) => category.products)
-  @JoinColumn({ name: 'categoria_id' })
+  @JoinColumn({ name: 'category_id' })
   category: Category;
-}
+} 

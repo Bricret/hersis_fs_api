@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
 import { ProductsService } from './products.service';
-import { CreateProductDto, BulkInventoryEntryDto, UpdateProductDto } from './dto';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { BulkInventoryEntryDto } from './dto/bulk-inventory-entry.dto';
 
 @Controller('products')
 export class ProductsController {
@@ -10,7 +12,7 @@ export class ProductsController {
   create(@Body() createProductDto: CreateProductDto) {
     return this.productsService.create(createProductDto);
   }
-  
+
   @Post('/inventory-entries')
   async createBulkInventoryEntries(@Body() bulkEntryDto: BulkInventoryEntryDto) {
     return this.productsService.addBulkInventoryEntries(bulkEntryDto);
@@ -22,17 +24,17 @@ export class ProductsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.productsService.findOne(id as unknown as bigint);
+  findOne(@Param('id') id: bigint) {
+    return this.productsService.findOne(id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
-    return this.productsService.update(id as unknown as bigint, updateProductDto);
+  update(@Param('id') id: bigint, @Body() updateProductDto: UpdateProductDto) {
+    return this.productsService.update(id, updateProductDto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.productsService.remove(id as unknown as bigint);
+  remove(@Param('id') id: bigint) {
+    return this.productsService.remove(id);
   }
 }
