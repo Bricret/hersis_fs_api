@@ -10,6 +10,7 @@ import { BulkInventoryEntryDto } from './dto/bulk-inventory-entry.dto';
 import { CommonService } from 'src/common/common.service';
 import { CategoryService } from 'src/category/category.service';
 import { LogsService } from 'src/logs/logs.service';
+import { FindProductsDto } from './dto/find-products.dto';
 
 @Injectable()
 export class ProductsService {
@@ -26,15 +27,21 @@ export class ProductsService {
   ) {}
 
   async create(createProductDto: CreateProductDto) {
+
+    console.log('se ejecuto?')
+
+    console.log(createProductDto)
+
     try {
       const category = await this.categorieService.findOne(createProductDto.category_id);
-
       if (createProductDto.type === 'medicine') {
-        const medicine = this.medicineRepository.create(createProductDto);
-        await this.medicineRepository.save({
-          ...medicine,
+        const medicineData = {
+          ...createProductDto,
           category,
-        });
+          presentation_id: createProductDto.presentation_id
+        };
+        const medicine = this.medicineRepository.create(medicineData);
+        await this.medicineRepository.save(medicine);
 
         await this.logsService.createLog({
           action: 'create',
@@ -55,7 +62,7 @@ export class ProductsService {
         await this.logsService.createLog({
           action: 'create',
           entity: 'general_product',
-          description: `Producto general ${generalProduct.name} creado exitosamente.`,
+          description: `Producto ${generalProduct.name} registrado exitosamente.`,
           userId: '1',
           timestamp: new Date(),
         });
@@ -67,11 +74,52 @@ export class ProductsService {
     }
   }
 
-  async findAll() {
+  async findAll(findProductsDto: FindProductsDto) {
     try {
-      const medicines = await this.medicineRepository.find();
-      const generalProducts = await this.generalProductRepository.find();
-      return [...medicines, ...generalProducts];
+      const { search, page = 1, limit = 10 } = findProductsDto;
+      
+      const medicineQueryBuilder = this.medicineRepository.createQueryBuilder('medicine')
+        .leftJoinAndSelect('medicine.category', 'category');
+      
+      const generalProductQueryBuilder = this.generalProductRepository.createQueryBuilder('generalProduct')
+        .leftJoinAndSelect('generalProduct.category', 'category');
+
+      if (search && search.length > 0) {
+        const searchPattern = `%${search}%`;
+        medicineQueryBuilder.where(
+          'medicine.name LIKE :search OR medicine.description LIKE :search OR medicine.barCode LIKE :search',
+          { search: searchPattern }
+        );
+        generalProductQueryBuilder.where(
+          'generalProduct.name LIKE :search OR generalProduct.description LIKE :search OR generalProduct.barCode LIKE :search',
+          { search: searchPattern }
+        );
+      }
+
+      const skip = (page - 1) * limit;
+
+      const [medicines, totalMedicines] = await medicineQueryBuilder
+        .skip(skip)
+        .take(limit)
+        .getManyAndCount();
+
+      const [generalProducts, totalGeneralProducts] = await generalProductQueryBuilder
+        .skip(skip)
+        .take(limit)
+        .getManyAndCount();
+
+      const total = totalMedicines + totalGeneralProducts;
+      const allProducts = [...medicines, ...generalProducts];
+
+      return {
+        data: allProducts,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit)
+        }
+      };
     } catch (error) {
       this.commonService.handleExceptions(error.message, 'BR');
     }
@@ -96,7 +144,8 @@ export class ProductsService {
     try {
       const medicine = await this.medicineRepository.findOne({ where: { id } });
       if (medicine) {
-        await this.medicineRepository.update({ id }, updateProductDto);
+        const { presentation_id, ...medicineData } = updateProductDto;
+        await this.medicineRepository.update({ id }, medicineData);
         return this.medicineRepository.findOne({ where: { id } });
       }
 
@@ -150,12 +199,12 @@ export class ProductsService {
       if (product instanceof Medicine) {
         await this.medicineRepository.save({
           ...product,
-          expiration_date: entry.expirationDate,
+          expiration_date: entry.expirationDate.toISOString(),
         });
       } else {
         await this.generalProductRepository.save({
           ...product,
-          expiration_date: entry.expirationDate,
+          expiration_date: entry.expirationDate.toISOString(),
         });
       }
 

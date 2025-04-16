@@ -33,13 +33,17 @@ export class CreateProductDto {
   @IsNotEmpty()
   lot_number: string;
 
-  @IsDate()
+  @IsString()
   @IsNotEmpty()
-  expiration_date: Date;
+  expiration_date: string;
 
   @IsNumber()
   @IsNotEmpty()
   category_id: number;
+
+  @IsString()
+  @IsNotEmpty()
+  branch_id: string;
 
   @IsString()
   @IsNotEmpty()
@@ -71,16 +75,16 @@ export class CreateProductDto {
   storage_conditions?: string;
 
   @IsOptional()
-  @IsArray()
-  active_ingredients?: string[];
-
-  @IsOptional()
   @IsString()
   warnings?: string;
 
   @IsOptional()
   @IsString()
   administration_route?: string;
+
+  @IsOptional()
+  @IsNumber()
+  presentation_id?: number;
 
   // Campos específicos de productos generales
   @IsOptional()

@@ -1,5 +1,6 @@
 import { BaseProduct } from './base-product.entity';
-import { Column, Entity } from 'typeorm';
+import { Column, Entity, ManyToOne, JoinColumn } from 'typeorm';
+import { Presentation } from '../../presentation/entities/presentation.entity';
 
 @Entity({
   name: 'medicines',
@@ -23,12 +24,16 @@ export class Medicine extends BaseProduct {
   @Column()
   storage_conditions: string;
 
-  @Column('simple-array')
-  active_ingredients: string[];
-
   @Column()
   warnings: string;
 
   @Column()
   administration_route: string;
+
+  @ManyToOne(() => Presentation)
+  @JoinColumn({ name: 'presentation_id' })
+  presentation: Presentation;
+
+  @Column({ nullable: true })
+  presentation_id: number;
 } 

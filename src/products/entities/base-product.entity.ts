@@ -30,7 +30,7 @@ export abstract class BaseProduct {
   lot_number: string;
 
   @Column()
-  expiration_date: Date;
+  expiration_date: string;
 
   @Column({ default: true })
   is_active: boolean;
