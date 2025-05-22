@@ -28,17 +28,14 @@ export class ProductsService {
 
   async create(createProductDto: CreateProductDto) {
 
-    console.log('se ejecuto?')
-
-    console.log(createProductDto)
-
     try {
       const category = await this.categorieService.findOne(createProductDto.category_id);
       if (createProductDto.type === 'medicine') {
         const medicineData = {
           ...createProductDto,
           category,
-          presentation_id: createProductDto.presentation_id
+          presentation_id: createProductDto.presentation_id,
+          type: 'medicine' as const
         };
         const medicine = this.medicineRepository.create(medicineData);
         await this.medicineRepository.save(medicine);
@@ -53,7 +50,10 @@ export class ProductsService {
 
         return medicine;
       } else {
-        const generalProduct = this.generalProductRepository.create(createProductDto);
+        const generalProduct = this.generalProductRepository.create({
+          ...createProductDto,
+          type: 'general' as const
+        });
         await this.generalProductRepository.save({
           ...generalProduct,
           category,
@@ -108,8 +108,8 @@ export class ProductsService {
         .take(limit)
         .getManyAndCount();
 
-      const total = totalMedicines + totalGeneralProducts;
       const allProducts = [...medicines, ...generalProducts];
+      const total = totalMedicines + totalGeneralProducts;
 
       return {
         data: allProducts,
@@ -249,5 +249,28 @@ export class ProductsService {
       currentAverageCost * (currentStock - newQuantity) +
       newCostPrice * newQuantity;
     return totalValue / currentStock;
+  }
+
+  async mappedProducts(id: bigint) {
+    //! Paso 1: Obtener el productoo
+    const product = await this.findOne(id);
+    console.log({
+      message: 'objeto sin mapear',
+      product
+    });
+
+    //! Paso 2: Mappear la informacion a conveniencia
+    const mappedProducts = {
+      id: product.id,
+      name: product.name
+    }
+
+    console.log({
+      message: "objeto mapeado",
+      mappedProducts
+    })
+
+    //! Paso 3: Retornar el objeto mapeado
+    return mappedProducts
   }
 }

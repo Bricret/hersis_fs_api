@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsBoolean, IsDate, IsOptional, IsArray, IsNotEmpty } from 'class-validator';
+import { IsString, IsNumber, IsBoolean, IsOptional, IsNotEmpty } from 'class-validator';
 
 export class CreateProductDto {
   @IsString()
@@ -94,28 +94,4 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   model?: string;
-
-  @IsOptional()
-  @IsString()
-  manufacturer?: string;
-
-  @IsOptional()
-  @IsString()
-  material?: string;
-
-  @IsOptional()
-  @IsString()
-  size?: string;
-
-  @IsOptional()
-  @IsString()
-  color?: string;
-
-  @IsOptional()
-  @IsString()
-  warranty_period?: string;
-
-  @IsOptional()
-  @IsString()
-  country_of_origin?: string;
 }

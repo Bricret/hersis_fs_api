@@ -35,6 +35,9 @@ export abstract class BaseProduct {
   @Column({ default: true })
   is_active: boolean;
 
+  @Column({ type: 'enum', enum: ['medicine', 'general'], default: 'general' })
+  type: 'medicine' | 'general';
+
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 

@@ -38,6 +38,12 @@ export class BranchesService {
         });
     }
 
+    async findAllMinimal(): Promise<Branch[]> {
+        return await this.branchRepository.find({
+            select: ['id', 'name'],
+        });
+    }
+
     async findOne(id: string): Promise<Branch> {
         const branch = await this.branchRepository.findOne({
             where: { id },

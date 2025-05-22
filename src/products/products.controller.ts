@@ -29,6 +29,11 @@ export class ProductsController {
     return this.productsService.findOne(id);
   }
 
+  @Get('mapped/:id')
+  mappedProducts(@Param('id') id: bigint) {
+    return this.productsService.mappedProducts(id);
+  }
+
   @Patch(':id')
   update(@Param('id') id: bigint, @Body() updateProductDto: UpdateProductDto) {
     return this.productsService.update(id, updateProductDto);

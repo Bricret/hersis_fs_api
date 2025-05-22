@@ -25,6 +25,14 @@ export class BranchesController {
         }
     }
 
+    @Get('minimal')
+    async findAllMinimal() {
+        try {
+            return await this.branchesService.findAllMinimal();
+        } catch (error) {
+            throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
     @Get(':id')
     async findOne(@Param('id') id: string) {
         try {

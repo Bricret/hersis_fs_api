@@ -17,6 +17,7 @@ export class CategoryService {
 
 
   async create(createCategoryDto: CreateCategoryDto) {
+    
 
     const categoryExist = await this.categoryRepository.findOne({
       where: { name: createCategoryDto.name },
@@ -44,11 +45,27 @@ export class CategoryService {
 
   async findOne(id: number) {
     try {
-      return await this.categoryRepository.findOne({
+      const res = await this.categoryRepository.findOne({
         where: { id },
       });
+      if (!res) this.commonService.handleExceptions('No se encontro la categoria', 'NF');
+      return res;
     } catch (error) {
-      this.commonService.handleExceptions(error.message, 'BR');
+      this.commonService.handleExceptions(error.message, 'NF');
     }
+  }
+
+  async update(id: number, updateCategoryDto: CreateCategoryDto) {
+    const category = await this.findOne(id);
+    this.categoryRepository.merge(category, updateCategoryDto);
+    this.categoryRepository.save(category);
+    return {
+      message: 'Categoria actualizada correctamente',
+    }
+  }
+
+  async delete(id: number) {
+    const category = await this.findOne(id);
+    return this.categoryRepository.remove(category);
   }
 }

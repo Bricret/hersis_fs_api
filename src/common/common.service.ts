@@ -8,7 +8,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 
-type MessageType = 'NF' | 'BR' | 'UE' | 'FB' | 'Def';
+type MessageType = 'NF' | 'BR' | 'UE' | 'FB' | 'ISE' | 'Default';
 
 @Injectable()
 export class CommonService {
@@ -36,6 +36,11 @@ export class CommonService {
       case 'FB':
         this.logMessage(error);
         throw new ForbiddenException(error);
+        break;
+
+      case 'ISE':
+        this.logMessage(error);
+        throw new InternalServerErrorException(error);
         break;
 
       default:
