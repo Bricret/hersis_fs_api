@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsBoolean, IsOptional, IsNotEmpty } from 'class-validator';
+import { IsString, IsNumber, IsBoolean, IsOptional, IsNotEmpty, IsDate } from 'class-validator';
 
 export class CreateProductDto {
   @IsString()
@@ -33,9 +33,9 @@ export class CreateProductDto {
   @IsNotEmpty()
   lot_number: string;
 
-  @IsString()
+  @IsDate()
   @IsNotEmpty()
-  expiration_date: string;
+  expiration_date: Date;
 
   @IsNumber()
   @IsNotEmpty()
@@ -69,14 +69,6 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   registration_number?: string;
-
-  @IsOptional()
-  @IsString()
-  storage_conditions?: string;
-
-  @IsOptional()
-  @IsString()
-  warnings?: string;
 
   @IsOptional()
   @IsString()

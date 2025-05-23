@@ -22,12 +22,6 @@ export class Medicine extends BaseProduct {
   registration_number: string;
 
   @Column()
-  storage_conditions: string;
-
-  @Column()
-  warnings: string;
-
-  @Column()
   administration_route: string;
 
   @ManyToOne(() => Presentation)
