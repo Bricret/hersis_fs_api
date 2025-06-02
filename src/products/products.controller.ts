@@ -20,25 +20,30 @@ export class ProductsController {
   }
 
   @Post('/bulk')
-  async createBulk(@Body() createProductDtos: CreateProductDto[]) {
-    return this.productsService.createBulk(createProductDtos);
+  async createBulk(@Body() body: { inventory: CreateProductDto[] }) {
+    console.log('Datos recibidos en el controlador:', {
+      inventory: body.inventory,
+      type: typeof body.inventory,
+      isArray: Array.isArray(body.inventory)
+    });
+    return this.productsService.createBulk(body.inventory);
   }
 
+  
   @Get()
   findAll(@Query() findProductsDto: FindProductsDto) {
     return this.productsService.findAll(findProductsDto);
   }
-
+  
   @Get(':id')
   findOne(@Param('id') id: bigint) {
     return this.productsService.findOne(id);
   }
 
-  @Get('mapped/:id')
-  mappedProducts(@Param('id') id: bigint) {
-    return this.productsService.mappedProducts(id);
+  @Patch('/refill/:id')
+  refillProduct(@Param('id') id: bigint, @Body() body: { refill: number, type: string }) {
+    return this.productsService.refillProduct(id, body)
   }
-
   @Patch(':id')
   update(@Param('id') id: bigint, @Body() updateProductDto: UpdateProductDto) {
     return this.productsService.update(id, updateProductDto);

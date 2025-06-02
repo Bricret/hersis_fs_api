@@ -116,6 +116,11 @@ export class ProductsService {
 
   async createBulk(createProductDtos: CreateProductDto[]) {
     try {
+      console.log('Datos recibidos en el servicio:', {
+        createProductDtos,
+        type: typeof createProductDtos,
+        isArray: Array.isArray(createProductDtos)
+      });
       const results = [];
       for (const dto of createProductDtos) {
         const product = await this.create(dto);
@@ -123,7 +128,6 @@ export class ProductsService {
       }
       return {
         message: 'Productos registrados correctamente.',
-        products: results,
       };
     } catch (error) {
       this.commonService.handleExceptions(error.message, 'BR');
@@ -295,6 +299,54 @@ export class ProductsService {
     }
   }
 
+  async refillProduct( id: bigint, body: {
+    refill: number;
+    type: string;
+} ) {
+
+  const { refill, type } = body
+
+  try {
+    if (type === "general") {
+      const product = await this.generalProductRepository.findOneBy({ id });
+      if (!product) {
+        this.commonService.handleExceptions(
+          `El producto con ID ${id} no fue encontrado.`,
+          'NF',
+        );
+      }
+
+      const newStock = product.initial_quantity + refill
+
+      this.medicineRepository.update({id}, {
+        initial_quantity: newStock
+      })
+      return {
+        message: `El producto ${product.name} fue recargado correctamente`
+      }
+    } else {
+      const product = await this.medicineRepository.findOneBy({ id });
+      if (!product) {
+        this.commonService.handleExceptions(
+          `El medicamento con ID ${id} no fue encontrado.`,
+          'NF',
+        );
+      }
+
+      const newStock = product.initial_quantity + refill
+
+      this.medicineRepository.update({id}, {
+        initial_quantity: newStock
+      })
+      return {
+        message: `El medicamento ${product.name} fue recargado correctamente`
+      }
+    }
+  } catch (error) {
+    this.commonService.handleExceptions(error.message, 'BR');
+  }
+  }
+
   private calculateNewAverageCost(
     currentStock: number,
     currentAverageCost: number,
@@ -305,28 +357,5 @@ export class ProductsService {
       currentAverageCost * (currentStock - newQuantity) +
       newCostPrice * newQuantity;
     return totalValue / currentStock;
-  }
-
-  async mappedProducts(id: bigint) {
-    //! Paso 1: Obtener el productoo
-    const product = await this.findOne(id);
-    console.log({
-      message: 'objeto sin mapear',
-      product
-    });
-
-    //! Paso 2: Mappear la informacion a conveniencia
-    const mappedProducts = {
-      id: product.id,
-      name: product.name
-    }
-
-    console.log({
-      message: "objeto mapeado",
-      mappedProducts
-    })
-
-    //! Paso 3: Retornar el objeto mapeado
-    return mappedProducts
   }
 }
