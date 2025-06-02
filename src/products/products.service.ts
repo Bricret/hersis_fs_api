@@ -26,9 +26,49 @@ export class ProductsService {
     private readonly logsService: LogsService,
   ) {}
 
-  async create(createProductDto: CreateProductDto) {
-
+  async create(createProductDto: CreateProductDto | CreateProductDto[]) {
     try {
+      // Si es un array, registrar cada producto y devolver el resultado agrupado
+      if (Array.isArray(createProductDto)) {
+        // Filtrar solo los que sean de tipo 'medicine'
+        const medicines = createProductDto.filter(
+          (dto) => dto.type === 'medicine'
+        );
+
+        // Evitar duplicados en el array de entrada por barCode (o por name si no hay barCode)
+        const uniqueMedicines = medicines.filter(
+          (dto, index, self) =>
+            index ===
+            self.findIndex(
+              (t) =>
+                (t.barCode && t.barCode === dto.barCode) ||
+                (!t.barCode && t.name === dto.name)
+            )
+        );
+
+        const results = [];
+        for (const dto of uniqueMedicines) {
+          // Verificar si ya existe por barCode o name
+          const exists = await this.medicineRepository.findOne({
+            where: [
+              dto.barCode
+                ? { barCode: dto.barCode }
+                : { name: dto.name }
+            ],
+          });
+          if (!exists) {
+            const result = await this.create(dto);
+            results.push(result);
+          }
+          // Si ya existe, puedes omitirlo o agregar un mensaje personalizado
+        }
+        return {
+          message: 'Medicamentos registrados correctamente.',
+          products: results,
+        };
+      }
+
+      // Si es un solo objeto, registrar como antes
       const category = await this.categorieService.findOne(createProductDto.category_id);
       if (createProductDto.type === 'medicine') {
         const medicineData = {
@@ -69,6 +109,22 @@ export class ProductsService {
 
         return generalProduct;
       }
+    } catch (error) {
+      this.commonService.handleExceptions(error.message, 'BR');
+    }
+  }
+
+  async createBulk(createProductDtos: CreateProductDto[]) {
+    try {
+      const results = [];
+      for (const dto of createProductDtos) {
+        const product = await this.create(dto);
+        results.push(product);
+      }
+      return {
+        message: 'Productos registrados correctamente.',
+        products: results,
+      };
     } catch (error) {
       this.commonService.handleExceptions(error.message, 'BR');
     }

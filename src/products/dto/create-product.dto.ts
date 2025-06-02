@@ -68,10 +68,6 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsString()
-  registration_number?: string;
-
-  @IsOptional()
-  @IsString()
   administration_route?: string;
 
   @IsOptional()

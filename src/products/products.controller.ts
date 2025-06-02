@@ -10,13 +10,18 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Post()
-  create(@Body() createProductDto: CreateProductDto) {
+  create(@Body() createProductDto: CreateProductDto | CreateProductDto[]) {
     return this.productsService.create(createProductDto);
   }
 
   @Post('/inventory-entries')
   async createBulkInventoryEntries(@Body() bulkEntryDto: BulkInventoryEntryDto) {
     return this.productsService.addBulkInventoryEntries(bulkEntryDto);
+  }
+
+  @Post('/bulk')
+  async createBulk(@Body() createProductDtos: CreateProductDto[]) {
+    return this.productsService.createBulk(createProductDtos);
   }
 
   @Get()

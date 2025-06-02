@@ -6,11 +6,15 @@ import { Presentation } from '../../presentation/entities/presentation.entity';
   name: 'medicines',
 })
 export class Medicine extends BaseProduct {
-  @Column()
-  active_name: string;
+  @Column({
+    nullable: true,
+  })
+  active_name?: string;
 
-  @Column()
-  dosage: string;
+  @Column({
+    nullable: true,
+  })
+  dosage?: string;
 
   @Column()
   prescription: boolean;
@@ -18,11 +22,10 @@ export class Medicine extends BaseProduct {
   @Column()
   laboratory: string;
 
-  @Column()
-  registration_number: string;
-
-  @Column()
-  administration_route: string;
+  @Column({
+    nullable: true,
+  })
+  administration_route?: string;
 
   @ManyToOne(() => Presentation)
   @JoinColumn({ name: 'presentation_id' })
