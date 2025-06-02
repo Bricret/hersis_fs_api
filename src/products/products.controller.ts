@@ -16,16 +16,11 @@ export class ProductsController {
 
   @Post('/inventory-entries')
   async createBulkInventoryEntries(@Body() bulkEntryDto: BulkInventoryEntryDto) {
-    return this.productsService.addBulkInventoryEntries(bulkEntryDto);
+    return this.productsService.addBulkInventoryEntries(bulkEntryDto, bulkEntryDto.type);
   }
 
   @Post('/bulk')
   async createBulk(@Body() body: { inventory: CreateProductDto[] }) {
-    console.log('Datos recibidos en el controlador:', {
-      inventory: body.inventory,
-      type: typeof body.inventory,
-      isArray: Array.isArray(body.inventory)
-    });
     return this.productsService.createBulk(body.inventory);
   }
 
@@ -36,21 +31,27 @@ export class ProductsController {
   }
   
   @Get(':id')
-  findOne(@Param('id') id: bigint) {
-    return this.productsService.findOne(id);
+  findOne(@Param('id') id: bigint, @Body() body: {type: string}) {
+    return this.productsService.findOne(id, body.type);
   }
 
   @Patch('/refill/:id')
   refillProduct(@Param('id') id: bigint, @Body() body: { refill: number, type: string }) {
     return this.productsService.refillProduct(id, body)
   }
+
   @Patch(':id')
   update(@Param('id') id: bigint, @Body() updateProductDto: UpdateProductDto) {
     return this.productsService.update(id, updateProductDto);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: bigint) {
-    return this.productsService.remove(id);
+  @Patch('/updatePrice/:id')
+  updatePriceProduct(@Param('id') id: bigint, @Body() body: { type: string, newPrice: number }) {
+    return this.productsService.updatePriceProduct(id, body)
+  }
+
+  @Patch('/disable/:id')
+  remove(@Param('id') id: bigint, @Body() body: { type: string }) {
+    return this.productsService.remove(id, body.type);
   }
 }

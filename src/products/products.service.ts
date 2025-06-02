@@ -32,7 +32,7 @@ export class ProductsService {
       if (Array.isArray(createProductDto)) {
         // Filtrar solo los que sean de tipo 'medicine'
         const medicines = createProductDto.filter(
-          (dto) => dto.type === 'medicine'
+          (dto) => dto.type === 'medicine',
         );
 
         // Evitar duplicados en el array de entrada por barCode (o por name si no hay barCode)
@@ -42,8 +42,8 @@ export class ProductsService {
             self.findIndex(
               (t) =>
                 (t.barCode && t.barCode === dto.barCode) ||
-                (!t.barCode && t.name === dto.name)
-            )
+                (!t.barCode && t.name === dto.name),
+            ),
         );
 
         const results = [];
@@ -51,9 +51,7 @@ export class ProductsService {
           // Verificar si ya existe por barCode o name
           const exists = await this.medicineRepository.findOne({
             where: [
-              dto.barCode
-                ? { barCode: dto.barCode }
-                : { name: dto.name }
+              dto.barCode ? { barCode: dto.barCode } : { name: dto.name },
             ],
           });
           if (!exists) {
@@ -69,13 +67,15 @@ export class ProductsService {
       }
 
       // Si es un solo objeto, registrar como antes
-      const category = await this.categorieService.findOne(createProductDto.category_id);
+      const category = await this.categorieService.findOne(
+        createProductDto.category_id,
+      );
       if (createProductDto.type === 'medicine') {
         const medicineData = {
           ...createProductDto,
           category,
           presentation_id: createProductDto.presentation_id,
-          type: 'medicine' as const
+          type: 'medicine' as const,
         };
         const medicine = this.medicineRepository.create(medicineData);
         await this.medicineRepository.save(medicine);
@@ -92,7 +92,7 @@ export class ProductsService {
       } else {
         const generalProduct = this.generalProductRepository.create({
           ...createProductDto,
-          type: 'general' as const
+          type: 'general' as const,
         });
         await this.generalProductRepository.save({
           ...generalProduct,
@@ -116,11 +116,6 @@ export class ProductsService {
 
   async createBulk(createProductDtos: CreateProductDto[]) {
     try {
-      console.log('Datos recibidos en el servicio:', {
-        createProductDtos,
-        type: typeof createProductDtos,
-        isArray: Array.isArray(createProductDtos)
-      });
       const results = [];
       for (const dto of createProductDtos) {
         const product = await this.create(dto);
@@ -137,22 +132,24 @@ export class ProductsService {
   async findAll(findProductsDto: FindProductsDto) {
     try {
       const { search, page = 1, limit = 10 } = findProductsDto;
-      
-      const medicineQueryBuilder = this.medicineRepository.createQueryBuilder('medicine')
+
+      const medicineQueryBuilder = this.medicineRepository
+        .createQueryBuilder('medicine')
         .leftJoinAndSelect('medicine.category', 'category');
-      
-      const generalProductQueryBuilder = this.generalProductRepository.createQueryBuilder('generalProduct')
+
+      const generalProductQueryBuilder = this.generalProductRepository
+        .createQueryBuilder('generalProduct')
         .leftJoinAndSelect('generalProduct.category', 'category');
 
       if (search && search.length > 0) {
         const searchPattern = `%${search}%`;
         medicineQueryBuilder.where(
           'medicine.name LIKE :search OR medicine.description LIKE :search OR medicine.barCode LIKE :search',
-          { search: searchPattern }
+          { search: searchPattern },
         );
         generalProductQueryBuilder.where(
           'generalProduct.name LIKE :search OR generalProduct.description LIKE :search OR generalProduct.barCode LIKE :search',
-          { search: searchPattern }
+          { search: searchPattern },
         );
       }
 
@@ -163,10 +160,11 @@ export class ProductsService {
         .take(limit)
         .getManyAndCount();
 
-      const [generalProducts, totalGeneralProducts] = await generalProductQueryBuilder
-        .skip(skip)
-        .take(limit)
-        .getManyAndCount();
+      const [generalProducts, totalGeneralProducts] =
+        await generalProductQueryBuilder
+          .skip(skip)
+          .take(limit)
+          .getManyAndCount();
 
       const allProducts = [...medicines, ...generalProducts];
       const total = totalMedicines + totalGeneralProducts;
@@ -177,26 +175,37 @@ export class ProductsService {
           total,
           page,
           limit,
-          totalPages: Math.ceil(total / limit)
-        }
+          totalPages: Math.ceil(total / limit),
+        },
       };
     } catch (error) {
       this.commonService.handleExceptions(error.message, 'BR');
     }
   }
 
-  async findOne(id: bigint) {
+  async findOne(id: bigint, type: string) {
     try {
-      const medicine = await this.medicineRepository.findOne({ where: { id } });
-      if (medicine) return medicine;
-
-      const generalProduct = await this.generalProductRepository.findOne({ where: { id } });
-      if (!generalProduct) {
-        this.commonService.handleExceptions('El producto solicitado no fue encontrado.', 'NF');
+      if (type === 'general') {
+        const product = await this.generalProductRepository.findOneBy({ id });
+        if (!product) {
+          this.commonService.handleExceptions(
+            `El producto con ID ${id} no fue encontrado.`,
+            'NF',
+          );
+        }
+        return product;
+      } else {
+        const medicine = await this.medicineRepository.findOneBy({ id });
+        if (!medicine) {
+          this.commonService.handleExceptions(
+            `El medicamento con ID ${id} no fue encontrado.`,
+            'NF',
+          );
+        }
+        return medicine;
       }
-      return generalProduct;
     } catch (error) {
-      this.commonService.handleExceptions(error.message, 'NF');
+      this.commonService.handleExceptions(error.message, 'BR');
     }
   }
 
@@ -209,38 +218,61 @@ export class ProductsService {
         return this.medicineRepository.findOne({ where: { id } });
       }
 
-      const generalProduct = await this.generalProductRepository.findOne({ where: { id } });
+      const generalProduct = await this.generalProductRepository.findOne({
+        where: { id },
+      });
       if (!generalProduct) {
-        this.commonService.handleExceptions('El producto solicitado no fue encontrado.', 'NF');
+        this.commonService.handleExceptions(
+          'El producto solicitado no fue encontrado.',
+          'NF',
+        );
       }
-      return this.generalProductRepository.update({id}, updateProductDto);
+      return this.generalProductRepository.update({ id }, updateProductDto);
     } catch (error) {
       this.commonService.handleExceptions(error.message, 'BR');
     }
   }
 
-  async remove(id: bigint) {
+  async remove(id: bigint, type: string) {
+    console.log(id, type);
     try {
-      const medicine = await this.medicineRepository.findOne({ where: { id } });
-      if (medicine) {
-        return this.medicineRepository.remove(medicine);
-      }
+      const productFind = await this.findOne(id, type);
 
-      const generalProduct = await this.generalProductRepository.findOne({ where: { id } });
-      if (!generalProduct) {
-        this.commonService.handleExceptions('El producto solicitado no fue encontrado.', 'NF');
+      if (type === 'general') {
+        await this.generalProductRepository.update(
+          { id },
+          {
+            is_active: !productFind.is_active,
+          },
+        );
+        return { message: "Producto desactivado correctamente" }
+      } else {
+        await this.medicineRepository.update(
+          { id },
+          {
+            is_active: !productFind.is_active,
+          },
+        );
+        return { message: "Medicamento desactivado correctamente" }
       }
-      return this.generalProductRepository.remove(generalProduct);
     } catch (error) {
       this.commonService.handleExceptions(error.message, 'BR');
     }
   }
 
-  async addInventoryEntry(entry: { productId: bigint; quantity: number; expirationDate: Date }) {
+  async addInventoryEntry(entry: {
+    productId: bigint;
+    quantity: number;
+    expirationDate: Date;
+    type: string
+  }) {
     try {
-      const product = await this.findOne(entry.productId);
+      const product = await this.findOne(entry.productId, entry.type);
       if (!product) {
-        this.commonService.handleExceptions('El producto solicitado no fue encontrado.', 'NF');
+        this.commonService.handleExceptions(
+          'El producto solicitado no fue encontrado.',
+          'NF',
+        );
       }
 
       const newQuantity = entry.quantity;
@@ -274,12 +306,12 @@ export class ProductsService {
     }
   }
 
-  async addBulkInventoryEntries(bulkEntryDto: BulkInventoryEntryDto) {
+  async addBulkInventoryEntries(bulkEntryDto: BulkInventoryEntryDto, type: string) {
     try {
       const results = [];
 
       for (const entry of bulkEntryDto.entries) {
-        const product = await this.findOne(entry.productId);
+        const product = await this.findOne(entry.productId, type);
         if (!product) {
           this.commonService.handleExceptions(
             `El producto ${entry.productId} no fue encontrado.`,
@@ -287,7 +319,7 @@ export class ProductsService {
           );
         }
 
-        const data = await this.addInventoryEntry(entry);
+        const data = await this.addInventoryEntry({...entry, type});
         results.push(data);
       }
 
@@ -299,52 +331,113 @@ export class ProductsService {
     }
   }
 
-  async refillProduct( id: bigint, body: {
-    refill: number;
-    type: string;
-} ) {
+  async refillProduct(
+    id: bigint,
+    body: {
+      refill: number;
+      type: string;
+    },
+  ) {
+    const { refill, type } = body;
 
-  const { refill, type } = body
+    try {
+      if (type === 'general') {
+        const product = await this.generalProductRepository.findOneBy({ id });
+        if (!product) {
+          this.commonService.handleExceptions(
+            `El producto con ID ${id} no fue encontrado.`,
+            'NF',
+          );
+        }
 
-  try {
-    if (type === "general") {
-      const product = await this.generalProductRepository.findOneBy({ id });
-      if (!product) {
-        this.commonService.handleExceptions(
-          `El producto con ID ${id} no fue encontrado.`,
-          'NF',
+        const newStock = product.initial_quantity + refill;
+
+        await this.generalProductRepository.update(
+          { id },
+          {
+            initial_quantity: newStock,
+          },
         );
-      }
 
-      const newStock = product.initial_quantity + refill
+        return {
+          message: `El producto ${product.name} fue recargado correctamente`,
+        };
+      } else {
+        const product = await this.medicineRepository.findOneBy({ id });
+        if (!product) {
+          this.commonService.handleExceptions(
+            `El medicamento con ID ${id} no fue encontrado.`,
+            'NF',
+          );
+        }
 
-      this.medicineRepository.update({id}, {
-        initial_quantity: newStock
-      })
-      return {
-        message: `El producto ${product.name} fue recargado correctamente`
-      }
-    } else {
-      const product = await this.medicineRepository.findOneBy({ id });
-      if (!product) {
-        this.commonService.handleExceptions(
-          `El medicamento con ID ${id} no fue encontrado.`,
-          'NF',
+        const newStock = product.initial_quantity + refill;
+
+        await this.medicineRepository.update(
+          { id },
+          {
+            initial_quantity: newStock,
+          },
         );
+        return {
+          message: `El medicamento ${product.name} fue recargado correctamente`,
+        };
       }
-
-      const newStock = product.initial_quantity + refill
-
-      this.medicineRepository.update({id}, {
-        initial_quantity: newStock
-      })
-      return {
-        message: `El medicamento ${product.name} fue recargado correctamente`
-      }
+    } catch (error) {
+      console.log(error);
+      this.commonService.handleExceptions(error.message, 'BR');
     }
-  } catch (error) {
-    this.commonService.handleExceptions(error.message, 'BR');
   }
+
+  async updatePriceProduct(
+    id: bigint,
+    body: { type: string; newPrice: number },
+  ) {
+    const { type, newPrice } = body;
+
+    try {
+      if (type === 'general') {
+        const product = await this.generalProductRepository.findOneBy({ id });
+        if (!product) {
+          this.commonService.handleExceptions(
+            `El producto con ID ${id} no fue encontrado.`,
+            'NF',
+          );
+        }
+
+        await this.generalProductRepository.update(
+          { id },
+          {
+            sales_price: newPrice,
+          },
+        );
+
+        return {
+          message: `El producto ${product.name} cambio su precio correctamente`,
+        };
+      } else {
+        const product = await this.medicineRepository.findOneBy({ id });
+        if (!product) {
+          this.commonService.handleExceptions(
+            `El medicamento con ID ${id} no fue encontrado.`,
+            'NF',
+          );
+        }
+
+        await this.medicineRepository.update(
+          { id },
+          {
+            sales_price: newPrice,
+          },
+        );
+        return {
+          message: `El medicamento ${product.name} cambio su precio correctamente`,
+        };
+      }
+    } catch (error) {
+      console.log(error);
+      this.commonService.handleExceptions(error.message, 'BR');
+    }
   }
 
   private calculateNewAverageCost(

@@ -6,4 +6,5 @@ export class BulkInventoryEntryDto {
   @ValidateNested({ each: true })
   @Type(() => InventoryEntriesDto)
   entries: InventoryEntriesDto[];
+  type: string
 }
