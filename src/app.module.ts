@@ -12,6 +12,7 @@ import { LogsModule } from './logs/logs.module';
 import { AuthModule } from './auth/auth.module';
 import { BranchesModule } from './branches/branches.module';
 import { PresentationModule } from './presentation/presentation.module';
+import { CashModule } from './cash/cash.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { PresentationModule } from './presentation/presentation.module';
     AuthModule,
     BranchesModule,
     PresentationModule,
+    CashModule,
   ],
   controllers: [],
   providers: [],

@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { BaseProduct } from './entities/base-product.entity';
 import { Medicine } from './entities/medicine.entity';
 import { GeneralProduct } from './entities/general-product.entity';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -15,12 +14,12 @@ import { FindProductsDto } from './dto/find-products.dto';
 @Injectable()
 export class ProductsService {
   constructor(
-    @InjectRepository(BaseProduct)
-    private baseProductRepository: Repository<BaseProduct>,
     @InjectRepository(Medicine)
     private medicineRepository: Repository<Medicine>,
+
     @InjectRepository(GeneralProduct)
     private generalProductRepository: Repository<GeneralProduct>,
+
     private readonly categorieService: CategoryService,
     private readonly commonService: CommonService,
     private readonly logsService: LogsService,
@@ -28,14 +27,11 @@ export class ProductsService {
 
   async create(createProductDto: CreateProductDto | CreateProductDto[]) {
     try {
-      // Si es un array, registrar cada producto y devolver el resultado agrupado
       if (Array.isArray(createProductDto)) {
-        // Filtrar solo los que sean de tipo 'medicine'
         const medicines = createProductDto.filter(
           (dto) => dto.type === 'medicine',
         );
 
-        // Evitar duplicados en el array de entrada por barCode (o por name si no hay barCode)
         const uniqueMedicines = medicines.filter(
           (dto, index, self) =>
             index ===
@@ -48,7 +44,6 @@ export class ProductsService {
 
         const results = [];
         for (const dto of uniqueMedicines) {
-          // Verificar si ya existe por barCode o name
           const exists = await this.medicineRepository.findOne({
             where: [
               dto.barCode ? { barCode: dto.barCode } : { name: dto.name },
@@ -58,7 +53,6 @@ export class ProductsService {
             const result = await this.create(dto);
             results.push(result);
           }
-          // Si ya existe, puedes omitirlo o agregar un mensaje personalizado
         }
         return {
           message: 'Medicamentos registrados correctamente.',
@@ -66,7 +60,6 @@ export class ProductsService {
         };
       }
 
-      // Si es un solo objeto, registrar como antes
       const category = await this.categorieService.findOne(
         createProductDto.category_id,
       );
