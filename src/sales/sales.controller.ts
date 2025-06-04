@@ -22,6 +22,16 @@ export class SalesController {
     return this.salesService.findOne(+id);
   }
 
+  @Get('by-cash/:cashId')
+  findByCash(@Param('cashId') cashId: string) {
+    return this.salesService.findByCash(cashId);
+  }
+
+  @Get('summary/by-cash/:cashId')
+  getSalesSummaryByCash(@Param('cashId') cashId: string) {
+    return this.salesService.getSalesSummaryByCash(cashId);
+  }
+
   @Get('report')
   GenerateReport(@Body() createReporteDto: CreateReportDto) {
     return this.salesService.GenerateReport(createReporteDto);

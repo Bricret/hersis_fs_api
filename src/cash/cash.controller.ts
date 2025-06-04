@@ -46,6 +46,11 @@ export class CashController {
     return this.cashService.getCashSummary(id);
   }
 
+  @Get(':id/sales')
+  getCashSales(@Param('id') id: string) {
+    return this.cashService.getCashSales(id);
+  }
+
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateCashDto: UpdateCashDto) {
     return this.cashService.update(id, updateCashDto);

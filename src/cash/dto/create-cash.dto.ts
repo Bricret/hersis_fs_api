@@ -15,4 +15,4 @@ export class CreateCashDto {
     @IsOptional()
     @IsString()
     observaciones?: string;
-} 
+}

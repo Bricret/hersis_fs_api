@@ -180,4 +180,31 @@ export class CashService {
         : 0,
     };
   }
+
+  async getCashSales(id: string) {
+    const cash = await this.findOne(id);
+    
+    const sales = await this.saleRepository.find({
+      where: { cash_register: { id } },
+      relations: ['branch', 'saleDetails'],
+      order: { date: 'DESC' },
+    });
+
+    const totalAmount = sales.reduce((sum, sale) => sum + Number(sale.total), 0);
+
+    return {
+      cash_info: {
+        id: cash.id,
+        fecha_apertura: cash.fecha_apertura,
+        fecha_cierre: cash.fecha_cierre,
+        estado: cash.estado,
+        monto_inicial: cash.monto_inicial,
+      },
+      sales_summary: {
+        total_sales_count: sales.length,
+        total_amount: totalAmount,
+      },
+      sales: sales,
+    };
+  }
 } 
