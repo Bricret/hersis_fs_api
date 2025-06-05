@@ -78,4 +78,9 @@ export class SalesController {
   ) {
     return this.salesService.cancelSale(+id, cancelSaleDto.reason);
   }
+
+  @Get('verify-cash/:cashId')
+  verifyCashConsistency(@Param('cashId') cashId: string) {
+    return this.salesService.verifyCashConsistency(cashId);
+  }
 }

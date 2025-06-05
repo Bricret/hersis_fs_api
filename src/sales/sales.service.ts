@@ -336,9 +336,20 @@ export class SalesService {
     try {
       const cash = await this.cashRepository.findOne({ where: { id: cashId } });
       if (cash) {
-        cash.ventas_totales = Number(cash.ventas_totales) + amount;
-        cash.monto_esperado = Number(cash.monto_inicial) + Number(cash.ventas_totales);
-        await this.cashRepository.save(cash);
+        // Actualizar las ventas totales
+        const newVentasTotales = Number(cash.ventas_totales) + amount;
+        
+        // El monto esperado debe ser monto inicial + todas las ventas
+        const newMontoEsperado = Number(cash.monto_inicial) + newVentasTotales;
+        
+        // Actualizar usando el repositorio para evitar problemas de concurrencia
+        await this.cashRepository.update(
+          { id: cashId },
+          {
+            ventas_totales: newVentasTotales,
+            monto_esperado: newMontoEsperado
+          }
+        );
       }
     } catch (error) {
       throw new BadRequestException(`Error al actualizar totales de caja: ${error.message}`);
@@ -390,5 +401,41 @@ export class SalesService {
     return Object.values(dailySales).sort((a: any, b: any) => 
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
+  }
+
+  async verifyCashConsistency(cashId: string) {
+    try {
+      const cash = await this.cashRepository.findOne({ where: { id: cashId } });
+      if (!cash) {
+        throw new BadRequestException('Caja no encontrada');
+      }
+
+      // Calcular totales reales desde las ventas
+      const actualTotalSales = await this.calculateActualSales(cashId);
+      const expectedMontoEsperado = Number(cash.monto_inicial) + actualTotalSales;
+      
+      return {
+        cash_id: cashId,
+        monto_inicial: Number(cash.monto_inicial),
+        ventas_totales_registradas: Number(cash.ventas_totales),
+        ventas_totales_calculadas: actualTotalSales,
+        monto_esperado_registrado: Number(cash.monto_esperado),
+        monto_esperado_calculado: expectedMontoEsperado,
+        es_consistente: Math.abs(Number(cash.ventas_totales) - actualTotalSales) < 0.01 &&
+                       Math.abs(Number(cash.monto_esperado) - expectedMontoEsperado) < 0.01
+      };
+    } catch (error) {
+      this.commonService.handleExceptions(error.message, 'BR');
+    }
+  }
+
+  private async calculateActualSales(cashId: string): Promise<number> {
+    const result = await this.saleRepository
+      .createQueryBuilder('sale')
+      .select('SUM(sale.total)', 'total')
+      .where('sale.cash_register = :cashId', { cashId })
+      .getRawOne();
+
+    return Number(result.total) || 0;
   }
 }

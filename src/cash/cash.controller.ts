@@ -62,6 +62,12 @@ export class CashController {
     return this.cashService.closeCash(id, closeCashDto);
   }
 
+  @Post(':id/sync-totals')
+  @HttpCode(HttpStatus.OK)
+  syncCashTotals(@Param('id') id: string) {
+    return this.cashService.syncCashTotals(id);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string) {

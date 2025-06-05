@@ -135,20 +135,30 @@ export class CashService {
       throw new NotFoundException('Usuario de cierre no encontrado');
     }
 
-    // Actualizar la caja
-    cash.fecha_cierre = new Date();
-    cash.monto_final = closeCashDto.monto_final;
-    cash.ventas_totales = totalSales;
-    cash.monto_esperado = cash.monto_inicial + totalSales;
-    cash.diferencia = cash.monto_final - cash.monto_esperado;
-    cash.estado = CashStatus.CERRADA;
-    cash.user_cierre = userCierre;
-    
-    if (closeCashDto.observaciones) {
-      cash.observaciones = closeCashDto.observaciones;
-    }
+    // Asegurar que trabajamos con números
+    const montoInicial = Number(cash.monto_inicial);
+    const montoFinal = Number(closeCashDto.monto_final);
+    const ventasTotales = Number(totalSales);
+    const montoEsperado = montoInicial + ventasTotales;
+    const diferencia = montoFinal - montoEsperado;
 
-    return await this.cashRepository.save(cash);
+    // Actualizar usando el repositorio para evitar problemas de tipos
+    await this.cashRepository.update(
+      { id },
+      {
+        fecha_cierre: new Date(),
+        monto_final: montoFinal,
+        ventas_totales: ventasTotales,
+        monto_esperado: montoEsperado,
+        diferencia: diferencia,
+        estado: CashStatus.CERRADA,
+        user_cierre: userCierre,
+        observaciones: closeCashDto.observaciones || cash.observaciones,
+      }
+    );
+
+    // Retornar la caja actualizada
+    return await this.findOne(id);
   }
 
   async calculateTotalSales(cashId: string): Promise<number> {
@@ -158,7 +168,31 @@ export class CashService {
       .where('sale.cash_register = :cashId', { cashId })
       .getRawOne();
 
-    return parseFloat(result.total) || 0;
+    return Number(result.total) || 0;
+  }
+
+  async syncCashTotals(cashId: string): Promise<Cash> {
+    const cash = await this.findOne(cashId);
+    
+    if (cash.estado === CashStatus.CERRADA) {
+      throw new BadRequestException('No se pueden sincronizar los totales de una caja cerrada');
+    }
+
+    // Recalcular totales desde las ventas registradas
+    const actualTotalSales = await this.calculateTotalSales(cashId);
+    const montoInicial = Number(cash.monto_inicial);
+    const newMontoEsperado = montoInicial + actualTotalSales;
+
+    // Actualizar los totales
+    await this.cashRepository.update(
+      { id: cashId },
+      {
+        ventas_totales: actualTotalSales,
+        monto_esperado: newMontoEsperado
+      }
+    );
+
+    return await this.findOne(cashId);
   }
 
   async remove(id: string): Promise<void> {
