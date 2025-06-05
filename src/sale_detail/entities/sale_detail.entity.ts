@@ -17,9 +17,12 @@ export class SaleDetail {
   @Column()
   subtotal: number;
 
-  @ManyToOne(() => Sale, (sale) => sale.saleDetails)
-  sale: Sale;
-
   @Column({ name: 'product_id', type: 'bigint' })
   productId: number;
+
+  @Column({ type: 'varchar', length: 20 })
+  product_type: 'medicine' | 'general';
+
+  @ManyToOne(() => Sale, (sale) => sale.saleDetails)
+  sale: Sale;
 }
