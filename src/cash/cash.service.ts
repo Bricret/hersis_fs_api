@@ -91,13 +91,19 @@ export class CashService {
   }
 
   async findActiveCashByBranch(branchId: string): Promise<Cash | null> {
-    return await this.cashRepository.findOne({
+    const result = await this.cashRepository.findOne({
       where: {
         branch: { id: branchId },
         estado: CashStatus.ABIERTA,
       },
       relations: ['branch', 'user_apertura', 'user_cierre', 'sales'],
     });
+
+    if (!result) {
+      return null;
+    }
+
+    return result;
   }
 
   async update(id: string, updateCashDto: UpdateCashDto): Promise<Cash> {
