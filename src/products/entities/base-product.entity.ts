@@ -11,10 +11,18 @@ export abstract class BaseProduct {
   @Column()
   description: string;
 
-  @Column()
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+  })
   sales_price: number;
 
-  @Column()
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+  })
   purchase_price: number;
 
   @Column()
