@@ -10,12 +10,12 @@ export class CreateProductDto {
   description: string;
 
   @IsNumber()
-  @IsNotEmpty()
-  sales_price: number;
+  @IsOptional()
+  sales_price?: number;
 
   @IsNumber()
-  @IsNotEmpty()
-  purchase_price: number;
+  @IsOptional()
+  purchase_price?: number;
 
   @IsNumber()
   @IsNotEmpty()

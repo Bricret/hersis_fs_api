@@ -15,6 +15,7 @@ export abstract class BaseProduct {
     type: 'decimal',
     precision: 10,
     scale: 2,
+    nullable: true,
   })
   sales_price: number;
 
@@ -22,6 +23,7 @@ export abstract class BaseProduct {
     type: 'decimal',
     precision: 10,
     scale: 2,
+    nullable: true,
   })
   purchase_price: number;
 
