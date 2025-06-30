@@ -15,4 +15,7 @@ export class CreateSaleDto {
     @ValidateNested({ each: true })
     @Type(() => CreateSaleDetailDto)
     saleDetails: CreateSaleDetailDto[];
+
+    @IsUUID()
+    user_id: string;
 }

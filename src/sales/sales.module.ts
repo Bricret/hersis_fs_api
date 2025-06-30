@@ -8,6 +8,7 @@ import { Branch } from 'src/branches/intities/branches.entity';
 import { Cash } from 'src/cash/entities/cash.entity';
 import { SaleDetail } from 'src/sale_detail/entities/sale_detail.entity';
 import { SaleDetailModule } from 'src/sale_detail/sale_detail.module';
+import { User } from 'src/users/entities/user.entity';
 
 @Module({
   imports: [
@@ -15,7 +16,8 @@ import { SaleDetailModule } from 'src/sale_detail/sale_detail.module';
       Sale,
       Branch,
       Cash,
-      SaleDetail
+      SaleDetail,
+      User
     ]),
     CommonModule,
     SaleDetailModule,

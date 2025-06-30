@@ -11,10 +11,18 @@ export class SaleDetail {
   @Column()
   quantity: number;
 
-  @Column()
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+  })
   unit_price: number;
 
-  @Column()
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+  })
   subtotal: number;
 
   @Column({ name: 'product_id', type: 'bigint' })

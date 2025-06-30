@@ -2,6 +2,7 @@ import { TransactionHistory } from "src/transaction_history/entities/transaction
 import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Branch } from "src/branches/intities/branches.entity";
 import { Cash } from "src/cash/entities/cash.entity";
+import { Sale } from "src/sales/entities/sale.entity";
 
 @Entity({
     name: 'user'
@@ -46,6 +47,9 @@ export class User {
 
     @OneToMany(() => Cash, cash => cash.user_cierre)
     cash_closed: Cash[];
+
+    @OneToMany(() => Sale, sale => sale.user)
+    sales: Sale[];
 
 }
 

@@ -13,3 +13,25 @@ services:
     container_name: hersis-fs-db
     volumes:
       - ./postgres:/var/lib/postgresql/data
+      - ./migrate-decimal-columns.sql:/docker-entrypoint-initdb.d/migrate-decimal-columns.sql
+
+  # Servicio opcional para ejecutar migraciones manuales
+  migrate:
+    image: postgres:14.3
+    depends_on:
+      - db
+    environment:
+      PGPASSWORD: ${DB_PASSWORD}
+      PGDATABASE: ${DB_NAME}
+      PGHOST: db
+      PGUSER: postgres
+    volumes:
+      - ./migrate-decimal-columns.sql:/migrate-decimal-columns.sql
+    command: >
+      sh -c "
+        echo 'Esperando a que la base de datos esté lista...' &&
+        until pg_isready -h db -U postgres; do sleep 2; done &&
+        echo 'Ejecutando migración...' &&
+        psql -f /migrate-decimal-columns.sql &&
+        echo 'Migración completada!'
+      "

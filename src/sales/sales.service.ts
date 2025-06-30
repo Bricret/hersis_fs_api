@@ -10,6 +10,7 @@ import { Cash } from 'src/cash/entities/cash.entity';
 import { CashStatus } from 'src/cash/entities/cash.entity';
 import { SaleDetailService } from 'src/sale_detail/sale_detail.service';
 import { SaleDetail } from 'src/sale_detail/entities/sale_detail.entity';
+import { User } from 'src/users/entities/user.entity';
 
 @Injectable()
 export class SalesService {
@@ -24,12 +25,14 @@ export class SalesService {
     @InjectRepository(SaleDetail)
     private readonly saleDetailRepository: Repository<SaleDetail>,
     private readonly commonService: CommonService,
-    private readonly saleDetailService: SaleDetailService
+    private readonly saleDetailService: SaleDetailService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   async create(createSaleDto: CreateSaleDto) {
     try {
-      const { branch_id, saleDetails, ...saleData } = createSaleDto;
+      const { branch_id, saleDetails, user_id, ...saleData } = createSaleDto;
 
       // Verificar que la sucursal existe
       const branch = await this.branchRepository.findOne({
@@ -37,6 +40,14 @@ export class SalesService {
       });
       if (!branch) {
         throw new BadRequestException('Sucursal no encontrada');
+      }
+
+      // Verificar que el usuario existe
+      const user = await this.userRepository.findOne({
+        where: { id: user_id },
+      });
+      if (!user) {
+        throw new BadRequestException('Usuario no encontrado');
       }
 
       // Buscar la caja abierta en la sucursal
@@ -71,6 +82,7 @@ export class SalesService {
         date: new Date(),
         branch,
         cash_register: activeCash,
+        user: user,
       });
 
       const savedSale = await this.saleRepository.save(sale);
