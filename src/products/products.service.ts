@@ -206,21 +206,60 @@ export class ProductsService {
     try {
       const medicine = await this.medicineRepository.findOne({ where: { id } });
       if (medicine) {
-        const { presentation_id, ...medicineData } = updateProductDto;
-        await this.medicineRepository.update({ id }, medicineData);
-        return this.medicineRepository.findOne({ where: { id } });
+        const { presentation_id, category_id, ...medicineData } = updateProductDto;
+        
+        const updateData: any = { ...medicineData };
+        
+        if (category_id) {
+          updateData.category = { id: category_id };
+        }
+        
+        if (presentation_id) {
+          updateData.presentation = { id: presentation_id };
+        }
+        
+        await this.medicineRepository.update({ id }, updateData);
+        
+        await this.logsService.createLog({
+          action: 'update',
+          entity: 'medicine',
+          description: `Medicamento ${medicine.name} actualizado exitosamente.`,
+          userId: '1',
+          timestamp: new Date(),
+        });
+        
+        return { message: 'Medicamento actualizado correctamente' };
       }
 
       const generalProduct = await this.generalProductRepository.findOne({
         where: { id },
       });
-      if (!generalProduct) {
-        this.commonService.handleExceptions(
-          'El producto solicitado no fue encontrado.',
-          'NF',
-        );
+      if (generalProduct) {
+        const { category_id, ...generalProductData } = updateProductDto;
+        
+        const updateData: any = { ...generalProductData };
+        
+        if (category_id) {
+          updateData.category = { id: category_id };
+        }
+        
+        await this.generalProductRepository.update({ id }, updateData);
+        
+        await this.logsService.createLog({
+          action: 'update',
+          entity: 'general_product',
+          description: `Producto ${generalProduct.name} actualizado exitosamente.`,
+          userId: '1',
+          timestamp: new Date(),
+        });
+        
+        return { message: 'Producto actualizado correctamente' };
       }
-      return this.generalProductRepository.update({ id }, updateProductDto);
+      
+      this.commonService.handleExceptions(
+        'El producto solicitado no fue encontrado.',
+        'NF',
+      );
     } catch (error) {
       this.commonService.handleExceptions(error.message, 'BR');
     }

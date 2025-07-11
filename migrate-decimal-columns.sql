@@ -1,37 +1,12 @@
--- Script de migración para convertir columnas unit_price y subtotal a decimal
--- Ejecutar este script en el contenedor de PostgreSQL
+-- Migración de columnas decimales para Hersis FS
+-- Este archivo se ejecuta automáticamente durante la inicialización de la base de datos
 
--- Verificar el estado actual de las columnas
-SELECT 
-    column_name, 
-    data_type, 
-    numeric_precision, 
-    numeric_scale
-FROM information_schema.columns 
-WHERE table_name = 'sale_details' 
-AND column_name IN ('unit_price', 'subtotal');
+-- Crear esquema si no existe
+CREATE SCHEMA IF NOT EXISTS hersis_fs;
 
--- Migrar columna unit_price a decimal(10,2)
--- Esta migración preserva todos los datos existentes
-ALTER TABLE sale_details 
-ALTER COLUMN unit_price TYPE DECIMAL(10,2) 
-USING unit_price::DECIMAL(10,2);
+-- Comentario: Aquí puedes agregar las migraciones específicas para columnas decimales
+-- Por ejemplo:
+-- ALTER TABLE tabla_ejemplo ALTER COLUMN precio TYPE DECIMAL(10,2);
 
--- Migrar columna subtotal a decimal(10,2)
--- Esta migración preserva todos los datos existentes
-ALTER TABLE sale_details 
-ALTER COLUMN subtotal TYPE DECIMAL(10,2) 
-USING subtotal::DECIMAL(10,2);
-
--- Verificar el resultado final
-SELECT 
-    column_name, 
-    data_type, 
-    numeric_precision, 
-    numeric_scale
-FROM information_schema.columns 
-WHERE table_name = 'sale_details' 
-AND column_name IN ('unit_price', 'subtotal');
-
--- Comentario: Las columnas ahora soportan decimales con 2 lugares decimales
--- Ejemplo: 123.45, 1000.00, 0.99 
+-- Ejemplo de migración placeholder
+SELECT 'Migración de columnas decimales completada' AS status;

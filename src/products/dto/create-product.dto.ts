@@ -1,4 +1,5 @@
 import { IsString, IsNumber, IsBoolean, IsOptional, IsNotEmpty, IsDate } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 
 export class CreateProductDto {
   @IsString()
@@ -35,6 +36,13 @@ export class CreateProductDto {
 
   @IsDate()
   @IsNotEmpty()
+  @Type(() => Date)
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return new Date(value);
+    }
+    return value;
+  })
   expiration_date: Date;
 
   @IsNumber()
