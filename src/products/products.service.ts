@@ -10,6 +10,7 @@ import { CommonService } from 'src/common/common.service';
 import { CategoryService } from 'src/category/category.service';
 import { LogsService } from 'src/logs/logs.service';
 import { FindProductsDto } from './dto/find-products.dto';
+import { DeleteProductsDto } from './dto/delete-products.dto';
 
 @Injectable()
 export class ProductsService {
@@ -26,6 +27,7 @@ export class ProductsService {
   ) {}
 
   async create(createProductDto: CreateProductDto | CreateProductDto[]) {
+    console.log("cuerpo", createProductDto);
     try {
       if (Array.isArray(createProductDto)) {
         const medicines = createProductDto.filter(
@@ -73,11 +75,12 @@ export class ProductsService {
         const medicine = this.medicineRepository.create(medicineData);
         await this.medicineRepository.save(medicine);
 
+        console.log("user_register", createProductDto.user_create);
         await this.logsService.createLog({
           action: 'create',
           entity: 'medicine',
           description: `Medicamento ${medicine.name} creado exitosamente.`,
-          userId: '1',
+          userId: createProductDto.user_create,
           timestamp: new Date(),
         });
 
@@ -96,7 +99,7 @@ export class ProductsService {
           action: 'create',
           entity: 'general_product',
           description: `Producto ${generalProduct.name} registrado exitosamente.`,
-          userId: '1',
+          userId: createProductDto.user_create,
           timestamp: new Date(),
         });
 
@@ -206,7 +209,7 @@ export class ProductsService {
     try {
       const medicine = await this.medicineRepository.findOne({ where: { id } });
       if (medicine) {
-        const { presentation_id, category_id, ...medicineData } = updateProductDto;
+        const { presentation_id, category_id, user_create, ...medicineData } = updateProductDto;
         
         const updateData: any = { ...medicineData };
         
@@ -224,7 +227,7 @@ export class ProductsService {
           action: 'update',
           entity: 'medicine',
           description: `Medicamento ${medicine.name} actualizado exitosamente.`,
-          userId: '1',
+          userId: updateProductDto.user_create || '1',
           timestamp: new Date(),
         });
         
@@ -235,7 +238,7 @@ export class ProductsService {
         where: { id },
       });
       if (generalProduct) {
-        const { category_id, ...generalProductData } = updateProductDto;
+        const { category_id, user_create, ...generalProductData } = updateProductDto;
         
         const updateData: any = { ...generalProductData };
         
@@ -249,7 +252,7 @@ export class ProductsService {
           action: 'update',
           entity: 'general_product',
           description: `Producto ${generalProduct.name} actualizado exitosamente.`,
-          userId: '1',
+          userId: updateProductDto.user_create,
           timestamp: new Date(),
         });
         
@@ -287,6 +290,90 @@ export class ProductsService {
         );
         return { message: "Medicamento desactivado correctamente" }
       }
+    } catch (error) {
+      this.commonService.handleExceptions(error.message, 'BR');
+    }
+  }
+
+  async deleteProduct(id: bigint, type: string, user_delete: string) {
+    try {
+      const product = await this.findOne(id, type);
+      if (type === 'general') {
+        await this.generalProductRepository.delete({ id });
+      } else {
+        await this.medicineRepository.delete({ id });
+      }
+      await this.logsService.createLog({
+        action: 'delete',
+        entity: type === 'general' ? 'general_product' : 'medicine',
+        description: `${type === 'general' ? 'Producto' : 'Medicamento'} ${product.name} eliminado exitosamente.`,
+        userId: user_delete,
+        timestamp: new Date(),
+      });
+      return { message: `${type === 'general' ? 'Producto' : 'Medicamento'} eliminado correctamente` };
+    } catch (error) {
+      this.commonService.handleExceptions(error.message, 'BR');
+    }
+  }
+
+  async deleteProducts(user_delete: string, deleteProductsDto: DeleteProductsDto) {
+    try {
+      // Si se proporciona un ID individual, usar el método existente
+      if (deleteProductsDto.id && deleteProductsDto.type) {
+        return await this.deleteProduct(BigInt(deleteProductsDto.id), deleteProductsDto.type, user_delete);
+      }
+
+      // Si se proporciona un array de productos
+      if (deleteProductsDto.products && deleteProductsDto.products.length > 0) {
+        const results = [];
+        const errors = [];
+
+        for (const productToDelete of deleteProductsDto.products) {
+          try {
+            const result = await this.deleteProduct(BigInt(productToDelete.id), productToDelete.type, user_delete);
+            results.push({
+              id: productToDelete.id,
+              type: productToDelete.type,
+              success: true,
+              message: result.message
+            });
+          } catch (error) {
+            errors.push({
+              id: productToDelete.id,
+              type: productToDelete.type,
+              success: false,
+              error: error.message
+            });
+          }
+        }
+
+        const successCount = results.length;
+        const errorCount = errors.length;
+
+        await this.logsService.createLog({
+          action: 'bulk_delete',
+          entity: 'products',
+          description: `Eliminación masiva: ${successCount} productos eliminados exitosamente, ${errorCount} errores.`,
+          userId: user_delete,
+          timestamp: new Date(),  
+        });
+
+        return {
+          message: `Eliminación completada: ${successCount} productos eliminados exitosamente`,
+          results,
+          errors: errorCount > 0 ? errors : undefined,
+          summary: {
+            total: deleteProductsDto.products.length,
+            success: successCount,
+            errors: errorCount
+          }
+        };
+      }
+
+      this.commonService.handleExceptions(
+        'Debe proporcionar un ID y tipo individual o un array de productos para eliminar.',
+        'BR',
+      );
     } catch (error) {
       this.commonService.handleExceptions(error.message, 'BR');
     }

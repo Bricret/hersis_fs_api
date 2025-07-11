@@ -90,4 +90,8 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   model?: string;
+
+  @IsOptional()
+  @IsString()
+  user_create?: string;
 }
