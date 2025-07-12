@@ -139,12 +139,20 @@ export class ProductsService {
 
       if (search && search.length > 0) {
         const searchPattern = `%${search}%`;
+        
+        // Búsqueda insensible a mayúsculas/minúsculas y acentos para medicamentos
         medicineQueryBuilder.where(
-          'medicine.name LIKE :search OR medicine.description LIKE :search OR medicine.barCode LIKE :search',
+          `LOWER(unaccent(medicine.name)) LIKE LOWER(unaccent(:search)) OR 
+           LOWER(unaccent(medicine.description)) LIKE LOWER(unaccent(:search)) OR 
+           LOWER(medicine.barCode) LIKE LOWER(:search)`,
           { search: searchPattern },
         );
+        
+        // Búsqueda insensible a mayúsculas/minúsculas y acentos para productos generales
         generalProductQueryBuilder.where(
-          'generalProduct.name LIKE :search OR generalProduct.description LIKE :search OR generalProduct.barCode LIKE :search',
+          `LOWER(unaccent(generalProduct.name)) LIKE LOWER(unaccent(:search)) OR 
+           LOWER(unaccent(generalProduct.description)) LIKE LOWER(unaccent(:search)) OR 
+           LOWER(generalProduct.barCode) LIKE LOWER(:search)`,
           { search: searchPattern },
         );
       }
