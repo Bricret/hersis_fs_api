@@ -126,16 +126,46 @@ export class ProductsService {
   }
 
   async findAll(findProductsDto: FindProductsDto) {
+
     try {
       const { search, page = 1, limit = 10 } = findProductsDto;
 
       const medicineQueryBuilder = this.medicineRepository
         .createQueryBuilder('medicine')
-        .leftJoinAndSelect('medicine.category', 'category');
+        .leftJoinAndSelect('medicine.category', 'category')
+        .select([
+          'medicine.id',
+          'medicine.name',
+          'medicine.description',
+          'medicine.barCode',
+          'medicine.sales_price',
+          'medicine.purchase_price',
+          'medicine.initial_quantity',
+          'medicine.expiration_date',
+          'medicine.is_active',
+          'medicine.type',
+          'medicine.presentation_id',
+          'category.id',
+          'category.name'
+        ]);
 
       const generalProductQueryBuilder = this.generalProductRepository
         .createQueryBuilder('generalProduct')
-        .leftJoinAndSelect('generalProduct.category', 'category');
+        .leftJoinAndSelect('generalProduct.category', 'category')
+        .select([
+          'generalProduct.id',
+          'generalProduct.name',
+          'generalProduct.description',
+          'generalProduct.barCode',
+          'generalProduct.sales_price',
+          'generalProduct.purchase_price',
+          'generalProduct.initial_quantity',
+          'generalProduct.expiration_date',
+          'generalProduct.is_active',
+          'generalProduct.type',
+          'category.id',
+          'category.name'
+        ]);
 
       if (search && search.length > 0) {
         const searchPattern = `%${search}%`;
@@ -157,24 +187,20 @@ export class ProductsService {
         );
       }
 
-      const skip = (page - 1) * limit;
+      // Primero obtenemos todos los productos sin paginación para calcular el total real
+      const [allMedicines, totalMedicines] = await medicineQueryBuilder.getManyAndCount();
+      const [allGeneralProducts, totalGeneralProducts] = await generalProductQueryBuilder.getManyAndCount();
 
-      const [medicines, totalMedicines] = await medicineQueryBuilder
-        .skip(skip)
-        .take(limit)
-        .getManyAndCount();
-
-      const [generalProducts, totalGeneralProducts] =
-        await generalProductQueryBuilder
-          .skip(skip)
-          .take(limit)
-          .getManyAndCount();
-
-      const allProducts = [...medicines, ...generalProducts];
+      // Combinamos todos los productos
+      const allProducts = [...allMedicines, ...allGeneralProducts];
       const total = totalMedicines + totalGeneralProducts;
 
+      // Aplicamos la paginación manualmente sobre el array combinado
+      const skip = (page - 1) * limit;
+      const paginatedProducts = allProducts.slice(skip, skip + limit);
+
       return {
-        data: allProducts,
+        data: paginatedProducts,
         meta: {
           total,
           page,

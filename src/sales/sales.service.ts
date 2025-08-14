@@ -2,7 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { Sale } from './entities/sale.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, Like } from 'typeorm';
 import { CommonService } from 'src/common/common.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { Branch } from 'src/branches/intities/branches.entity';
@@ -11,6 +11,11 @@ import { CashStatus } from 'src/cash/entities/cash.entity';
 import { SaleDetailService } from 'src/sale_detail/sale_detail.service';
 import { SaleDetail } from 'src/sale_detail/entities/sale_detail.entity';
 import { User } from 'src/users/entities/user.entity';
+import { QueryFindAllDto } from './dto/query-findAll.dto';
+import { SearchSalesDto } from './dto/search-sales.dto';
+import { GeneralProduct } from 'src/products/entities/general-product.entity';
+import { Medicine } from 'src/products/entities/medicine.entity';
+import { SalesSchema, PaginatedSalesResponse } from './dto/sales.schema';
 
 @Injectable()
 export class SalesService {
@@ -109,12 +114,355 @@ export class SalesService {
     }
   }
 
-  async findAll() {
+  async findAll(query: QueryFindAllDto): Promise<PaginatedSalesResponse> {
     try {
-      return await this.saleRepository.find({
-        relations: ['branch', 'cash_register', 'saleDetails'],
-        order: { date: 'DESC' },
+      const { page = 1, limit = 10 } = query;
+      
+      // Validar parámetros de paginación
+      const validPage = Math.max(1, page);
+      const validLimit = Math.min(100, Math.max(1, limit)); // Máximo 100 por página
+      const skip = (validPage - 1) * validLimit;
+
+      // Obtener el total de ventas para la paginación
+      const total = await this.saleRepository.count();
+
+      // Obtener las ventas con paginación usando QueryBuilder para mejor control de relaciones
+      const sales = await this.saleRepository
+        .createQueryBuilder('sale')
+        .leftJoinAndSelect('sale.branch', 'branch')
+        .leftJoinAndSelect('sale.cash_register', 'cash_register')
+        .leftJoinAndSelect('sale.saleDetails', 'saleDetails')
+        .leftJoinAndSelect('sale.user', 'user')
+        .orderBy('sale.date', 'DESC')
+        .skip(skip)
+        .take(validLimit)
+        .getMany();
+
+      // Verificar y recargar relaciones faltantes
+      let reloadedCount = 0;
+      for (let i = 0; i < sales.length; i++) {
+        const sale = sales[i];
+        if (!sale.user) {
+          console.log(`Recargando venta ${i} (ID: ${sale.id}) - usuario faltante`);
+          const reloadedSale = await this.saleRepository.findOne({
+            where: { id: sale.id },
+            relations: ['branch', 'cash_register', 'saleDetails', 'user']
+          });
+          if (reloadedSale) {
+            sales[i] = reloadedSale;
+            reloadedCount++;
+          }
+        }
+      }
+      console.log(`Total de ventas recargadas: ${reloadedCount}`);
+
+      // Verificar estado final de las relaciones
+      const finalRelationsCheck = sales.map((sale, index) => ({
+        index,
+        id: sale.id,
+        hasBranch: !!sale.branch,
+        hasUser: !!sale.user,
+        hasCashRegister: !!sale.cash_register,
+        hasSaleDetails: !!sale.saleDetails
+      }));
+      console.log('Estado final de relaciones:', finalRelationsCheck);
+
+      // Cargar los productos de forma separada para evitar problemas de JOIN
+      for (const sale of sales) {
+        if (sale.saleDetails) {
+          for (const detail of sale.saleDetails) {
+            if (detail.product_type === 'general' && detail.productId) {
+              try {
+                const product = await this.saleRepository.manager.findOne(GeneralProduct, {
+                  where: { id: BigInt(detail.productId) }
+                });
+                if (product) {
+                  detail['productName'] = product.name;
+                }
+              } catch (error) {
+                // Si no se puede cargar el producto, continuar
+                detail['productName'] = 'Producto no encontrado';
+              }
+            } else if (detail.product_type === 'medicine' && detail.productId) {
+              try {
+                const medicine = await this.saleRepository.manager.findOne(Medicine, {
+                  where: { id: BigInt(detail.productId) }
+                });
+                if (medicine) {
+                  detail['productName'] = medicine.name;
+                }
+              } catch (error) {
+                // Si no se puede cargar el medicamento, continuar
+                detail['productName'] = 'Medicamento no encontrado';
+              }
+            }
+          }
+        }
+      }
+
+      // Log para debugging
+      console.log('=== SALES PAGINATION DEBUG ===');
+      console.log('Total count:', total);
+      console.log('Page:', validPage, 'Limit:', validLimit, 'Skip:', skip);
+      console.log('Sales found:', sales.length);
+      console.log('Expected range:', skip + 1, 'to', skip + validLimit);
+      
+      // Verificar relaciones cargadas
+      if (sales.length > 0) {
+        console.log('First sale relations check:', {
+          hasBranch: !!sales[0].branch,
+          hasUser: !!sales[0].user,
+          hasCashRegister: !!sales[0].cash_register,
+          hasSaleDetails: !!sales[0].saleDetails
+        });
+      }
+      console.log('===============================');
+      
+      sales.forEach((sale, index) => {
+        if (!sale.branch || !sale.user) {
+          console.log(`Venta ${index} (ID: ${sale.id}) tiene relaciones faltantes:`, {
+            hasBranch: !!sale.branch,
+            hasUser: !!sale.user,
+            hasCashRegister: !!sale.cash_register,
+            hasSaleDetails: !!sale.saleDetails
+          });
+        }
       });
+
+      // Mapear los resultados según el esquema SalesSchema
+      const mappedSales: SalesSchema[] = sales
+        .filter(sale => sale.branch && sale.user) // Filtrar ventas sin branch o user
+        .map(sale => ({
+          id: Number(sale.id),
+          date: sale.date,
+          total: sale.total,
+          branch: sale.branch ? {
+            id: sale.branch.id,
+            name: sale.branch.name
+          } : null,
+          cash_register: sale.cash_register ? {
+            id: sale.cash_register.id,
+            fecha_apertura: sale.cash_register.fecha_apertura,
+            fecha_cierre: sale.cash_register.fecha_cierre,
+            estado: sale.cash_register.estado
+          } : null,
+          user: sale.user ? {
+            id: sale.user.id,
+            name: sale.user.name,
+            is_active: sale.user.isActive
+          } : null,
+          saleDetails: sale.saleDetails ? sale.saleDetails.map(detail => ({
+            id: detail.id.toString(),
+            quantity: detail.quantity,
+            unit_price: detail.unit_price,
+            subtotal: detail.subtotal,
+            productId: detail.productId,
+            product_type: detail.product_type,
+            productName: detail['productName'] || 'Producto no encontrado'
+          })) : []
+        }))
+        .filter(sale => sale.branch && sale.user); // Filtrar ventas mapeadas sin branch o user
+
+      // Calcular metadata de paginación
+      const totalPages = Math.ceil(total / validLimit);
+      const hasNextPage = validPage < totalPages;
+      const hasPreviousPage = validPage > 1;
+
+      // Retornar respuesta paginada
+      return {
+        data: mappedSales,
+        metadata: {
+          total,
+          page: validPage,
+          limit: validLimit,
+          totalPages,
+          hasNextPage,
+          hasPreviousPage
+        }
+      };
+    } catch (error) {
+      this.commonService.handleExceptions(error.message, 'BR');
+    }
+  }
+
+  async searchSales(searchDto: SearchSalesDto): Promise<PaginatedSalesResponse> {
+    try {
+      const { search, page = 1, limit = 10 } = searchDto;
+      
+      // Validar parámetros de paginación
+      const validPage = Math.max(1, page);
+      const validLimit = Math.min(100, Math.max(1, limit)); // Máximo 100 por página
+      const skip = (validPage - 1) * validLimit;
+
+      // Construir la consulta de búsqueda
+      let whereCondition: any = {};
+      
+      // Verificar si la búsqueda es un número (ID de venta)
+      const isNumericSearch = !isNaN(Number(search));
+      
+      if (isNumericSearch) {
+        // Buscar por ID de venta
+        whereCondition = { id: BigInt(search) };
+      } else {
+        // Buscar por nombre de vendedor (búsqueda parcial)
+        whereCondition = { user: { name: Like(`%${search}%`) } };
+      }
+
+      // Obtener el total de resultados de búsqueda
+      const total = await this.saleRepository.count({
+        where: whereCondition,
+        relations: isNumericSearch ? [] : ['user']
+      });
+
+      // Obtener las ventas con paginación usando QueryBuilder para mejor control de relaciones
+      const queryBuilder = this.saleRepository
+        .createQueryBuilder('sale')
+        .leftJoinAndSelect('sale.branch', 'branch')
+        .leftJoinAndSelect('sale.cash_register', 'cash_register')
+        .leftJoinAndSelect('sale.saleDetails', 'saleDetails')
+        .leftJoinAndSelect('sale.user', 'user')
+        .orderBy('sale.date', 'DESC')
+        .skip(skip)
+        .take(validLimit);
+
+      // Aplicar condiciones de búsqueda
+      if (isNumericSearch) {
+        queryBuilder.where('sale.id = :id', { id: search });
+      } else {
+        queryBuilder.where('user.name LIKE :name', { name: `%${search}%` });
+      }
+
+      const sales = await queryBuilder.getMany();
+
+      // Verificar y recargar relaciones faltantes
+      let reloadedCount = 0;
+      for (let i = 0; i < sales.length; i++) {
+        const sale = sales[i];
+        if (!sale.user) {
+          console.log(`Recargando venta de búsqueda ${i} (ID: ${sale.id}) - usuario faltante`);
+          const reloadedSale = await this.saleRepository.findOne({
+            where: { id: sale.id },
+            relations: ['branch', 'cash_register', 'saleDetails', 'user']
+          });
+          if (reloadedSale) {
+            sales[i] = reloadedSale;
+            reloadedCount++;
+          }
+        }
+      }
+      console.log(`Total de ventas recargadas: ${reloadedCount}`);
+
+      // Verificar estado final de las relaciones
+      const finalRelationsCheck = sales.map((sale, index) => ({
+        index,
+        id: sale.id,
+        hasBranch: !!sale.branch,
+        hasUser: !!sale.user,
+        hasCashRegister: !!sale.cash_register,
+        hasSaleDetails: !!sale.saleDetails
+      }));
+      console.log('Estado final de relaciones:', finalRelationsCheck);
+
+      // Cargar los productos de forma separada para evitar problemas de JOIN
+      for (const sale of sales) {
+        if (sale.saleDetails) {
+          for (const detail of sale.saleDetails) {
+            if (detail.product_type === 'general' && detail.productId) {
+              try {
+                const product = await this.saleRepository.manager.findOne(GeneralProduct, {
+                  where: { id: BigInt(detail.productId) }
+                });
+                if (product) {
+                  detail['productName'] = product.name;
+                }
+              } catch (error) {
+                detail['productName'] = 'Producto no encontrado';
+              }
+            } else if (detail.product_type === 'medicine' && detail.productId) {
+              try {
+                const medicine = await this.saleRepository.manager.findOne(Medicine, {
+                  where: { id: BigInt(detail.productId) }
+                });
+                if (medicine) {
+                  detail['productName'] = medicine.name;
+                }
+              } catch (error) {
+                detail['productName'] = 'Medicamento no encontrado';
+              }
+            }
+          }
+        }
+      }
+
+      // Log para debugging
+      console.log('=== SALES SEARCH DEBUG ===');
+      console.log('Search term:', search);
+      console.log('Is numeric search:', isNumericSearch);
+      console.log('Total count:', total);
+      console.log('Page:', validPage, 'Limit:', validLimit, 'Skip:', skip);
+      console.log('Sales found:', sales.length);
+      
+      // Verificar relaciones cargadas
+      if (sales.length > 0) {
+        console.log('First sale relations check:', {
+          hasBranch: !!sales[0].branch,
+          hasUser: !!sales[0].user,
+          hasCashRegister: !!sales[0].cash_register,
+          hasSaleDetails: !!sales[0].saleDetails
+        });
+      }
+      console.log('==========================');
+
+      // Mapear los resultados según el esquema SalesSchema
+      const mappedSales: SalesSchema[] = sales
+        .filter(sale => sale.branch && sale.user)
+        .map(sale => ({
+          id: Number(sale.id),
+          date: sale.date,
+          total: sale.total,
+          branch: sale.branch ? {
+            id: sale.branch.id,
+            name: sale.branch.name
+          } : null,
+          cash_register: sale.cash_register ? {
+            id: sale.cash_register.id,
+            fecha_apertura: sale.cash_register.fecha_apertura,
+            fecha_cierre: sale.cash_register.fecha_cierre,
+            estado: sale.cash_register.estado
+          } : null,
+          user: sale.user ? {
+            id: sale.user.id,
+            name: sale.user.name,
+            is_active: sale.user.isActive
+          } : null,
+          saleDetails: sale.saleDetails ? sale.saleDetails.map(detail => ({
+            id: detail.id.toString(),
+            quantity: detail.quantity,
+            unit_price: detail.unit_price,
+            subtotal: detail.subtotal,
+            productId: detail.productId,
+            product_type: detail.product_type,
+            productName: detail['productName'] || 'Producto no encontrado'
+          })) : []
+        }));
+
+      // Calcular metadata de paginación
+      const totalPages = Math.ceil(total / validLimit);
+      const hasNextPage = validPage < totalPages;
+      const hasPreviousPage = validPage > 1;
+
+      // Retornar respuesta paginada
+      return {
+        data: mappedSales,
+        metadata: {
+          total,
+          page: validPage,
+          limit: validLimit,
+          totalPages,
+          hasNextPage,
+          hasPreviousPage
+        }
+      };
     } catch (error) {
       this.commonService.handleExceptions(error.message, 'BR');
     }

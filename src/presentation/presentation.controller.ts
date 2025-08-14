@@ -5,7 +5,7 @@ import { PresentationService } from './presentation.service';
 import { CreateCategoryDto } from 'src/category/dto/create-category.dto';
 import { UpdatePresentationDto } from './dto/update-prsentation.dto';
 
-@Controller('category')
+@Controller('presentation')
 export class PresentationController {
   constructor(private readonly presentationService: PresentationService) {}
 

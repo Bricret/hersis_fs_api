@@ -4,6 +4,8 @@ import { CreateSaleDto } from './dto/create-sale.dto';
 import { CreateReportDto } from './dto/create-report.dto';
 import { CancelSaleDto } from './dto/cancel-sale.dto';
 import { SalesAnalyticsDto } from './dto/sales-analytics.dto';
+import { QueryFindAllDto } from './dto/query-findAll.dto';
+import { SearchSalesDto } from './dto/search-sales.dto';
 
 @Controller('sales')
 export class SalesController {
@@ -14,9 +16,15 @@ export class SalesController {
     return this.salesService.create(createSaleDto);
   }
 
+  //! Tiene malo el paginado pero el es el unico que no funciona search si funciona
   @Get()
-  findAll() {
-    return this.salesService.findAll();
+  findAll(@Query() query: QueryFindAllDto) {
+    return this.salesService.findAll(query);
+  }
+
+  @Get('search')
+  searchSales(@Query() searchDto: SearchSalesDto) {
+    return this.salesService.searchSales(searchDto);
   }
 
   @Get(':id')
