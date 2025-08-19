@@ -13,6 +13,7 @@ import { AuthModule } from './auth/auth.module';
 import { BranchesModule } from './branches/branches.module';
 import { PresentationModule } from './presentation/presentation.module';
 import { CashModule } from './cash/cash.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { CashModule } from './cash/cash.module';
     BranchesModule,
     PresentationModule,
     CashModule,
+    NotificationsModule,
   ],
   controllers: [],
   providers: [],
