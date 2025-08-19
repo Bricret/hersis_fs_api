@@ -125,6 +125,7 @@ export class ProductsService {
     }
   }
 
+  //! El limite no funciona, se debe arreglar.
   async findAll(findProductsDto: FindProductsDto) {
 
     try {
@@ -168,23 +169,39 @@ export class ProductsService {
         ]);
 
       if (search && search.length > 0) {
-        const searchPattern = `%${search}%`;
+        // Determinar si la búsqueda es por código específico o por coincidencias parciales
+        // Asumimos que es un código si contiene números o si no contiene espacios y es alfanumérico
+        const isCodeSearch = /^[A-Za-z0-9\-_]+$/.test(search) && (/\d/.test(search) || search.length >= 6);
         
-        // Búsqueda insensible a mayúsculas/minúsculas y acentos para medicamentos
-        medicineQueryBuilder.where(
-          `LOWER(unaccent(medicine.name)) LIKE LOWER(unaccent(:search)) OR 
-           LOWER(unaccent(medicine.description)) LIKE LOWER(unaccent(:search)) OR 
-           LOWER(medicine.barCode) LIKE LOWER(:search)`,
-          { search: searchPattern },
-        );
-        
-        // Búsqueda insensible a mayúsculas/minúsculas y acentos para productos generales
-        generalProductQueryBuilder.where(
-          `LOWER(unaccent(generalProduct.name)) LIKE LOWER(unaccent(:search)) OR 
-           LOWER(unaccent(generalProduct.description)) LIKE LOWER(unaccent(:search)) OR 
-           LOWER(generalProduct.barCode) LIKE LOWER(:search)`,
-          { search: searchPattern },
-        );
+        if (isCodeSearch) {
+          // Búsqueda exacta por código de barras
+          medicineQueryBuilder.where(
+            'LOWER(medicine.barCode) = LOWER(:exactSearch)',
+            { exactSearch: search }
+          );
+          
+          generalProductQueryBuilder.where(
+            'LOWER(generalProduct.barCode) = LOWER(:exactSearch)',
+            { exactSearch: search }
+          );
+        } else {
+          // Búsqueda por coincidencias parciales en nombres y descripciones
+          const searchPattern = `%${search}%`;
+          
+          // Búsqueda insensible a mayúsculas/minúsculas y acentos para medicamentos
+          medicineQueryBuilder.where(
+            `LOWER(unaccent(medicine.name)) LIKE LOWER(unaccent(:search)) OR 
+             LOWER(unaccent(medicine.description)) LIKE LOWER(unaccent(:search))`,
+            { search: searchPattern },
+          );
+          
+          // Búsqueda insensible a mayúsculas/minúsculas y acentos para productos generales
+          generalProductQueryBuilder.where(
+            `LOWER(unaccent(generalProduct.name)) LIKE LOWER(unaccent(:search)) OR 
+             LOWER(unaccent(generalProduct.description)) LIKE LOWER(unaccent(:search))`,
+            { search: searchPattern },
+          );
+        }
       }
 
       // Primero obtenemos todos los productos sin paginación para calcular el total real
