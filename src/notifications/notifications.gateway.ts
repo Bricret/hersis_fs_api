@@ -28,7 +28,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
 
   @UseGuards(WsJwtGuard)
   handleConnection(client: Socket) {
-    const userId = client.handshake.auth.userId;
+    const userId = client.handshake.headers.userid as string;
     if (userId) {
       this.connectedUsers.set(userId, client);
       client.join(`user_${userId}`);
@@ -37,7 +37,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   handleDisconnect(client: Socket) {
-    const userId = client.handshake.auth.userId;
+    const userId = client.handshake.headers.userid as string;
     if (userId) {
       this.connectedUsers.delete(userId);
       this.logger.log(`Usuario ${userId} desconectado de notificaciones`);
@@ -50,7 +50,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     @MessageBody() data: { userId: string },
     @ConnectedSocket() client: Socket
   ) {
-    const userId = client.handshake.auth.userId;
+    const userId = client.handshake.headers.userid as string;
     if (userId) {
       client.join(`user_${userId}`);
       this.logger.log(`Usuario ${userId} se unió a su sala de notificaciones`);

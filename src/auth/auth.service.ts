@@ -40,9 +40,10 @@ export class AuthService {
     await this.usersRepository.update(user.id, { lastLogin: new Date() });
     return safeUser as User;
   }
-
   // Método para generar el JWT
   async login(user: User) {
+    console.log(user);
+    
     const payload = {
       email: user.email,
       sub: user.id,

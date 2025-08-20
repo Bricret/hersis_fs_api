@@ -10,7 +10,7 @@ export class WsJwtGuard implements CanActivate {
   async canActivate(context: any): Promise<boolean> {
     try {
       const client: Socket = context.switchToWs().getClient();
-      const token = client.handshake.auth.token;
+      const token = client.handshake.headers.authorization;
       
       if (!token) {
         throw new WsException('Token no proporcionado');
