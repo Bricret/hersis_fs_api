@@ -39,7 +39,10 @@ lerna-debug.log*
 .env.development.local
 .env.test.local
 .env.production.local
-.env.local
+
+# Mantener .env.local y .env.docker como plantillas (no ignorar)
+# .env.local
+# .env.docker
 
 # temp directory
 .temp
