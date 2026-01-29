@@ -259,3 +259,6 @@ psql -U postgres -d hersis_fs_db < backup.sql
 ---
 
 **Nota**: Esta configuración mantiene intacta la configuración de Docker. Puedes cambiar entre ambas opciones según tus necesidades.
+
+
+dfabdf59-3bbc-47f2-bdf4-cb77aa02c310	Brian Rico	brian.rico378@gmail.com	$argon2id$v=19$m=65536,t=3,p=4$oIG/K48K+tgKBgOD50s9eQ$lp8sEMP/uWei33XsJ3+S8MqDrkMWcQyeNmkQ82JnEWA	chief	+50557971984	online	true	2002-03-13	2024-06-21	2025-06-21		NULL		NULL		
