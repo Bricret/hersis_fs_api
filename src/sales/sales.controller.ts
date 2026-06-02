@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Delete, Res } from '@nestjs/common';
 import { SalesService } from './sales.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { CreateReportDto } from './dto/create-report.dto';
@@ -6,6 +6,7 @@ import { CancelSaleDto } from './dto/cancel-sale.dto';
 import { SalesAnalyticsDto } from './dto/sales-analytics.dto';
 import { QueryFindAllDto } from './dto/query-findAll.dto';
 import { SearchSalesDto } from './dto/search-sales.dto';
+import { Response } from 'express';
 
 @Controller('sales')
 export class SalesController {
@@ -25,6 +26,21 @@ export class SalesController {
   @Get('search')
   searchSales(@Query() searchDto: SearchSalesDto) {
     return this.salesService.searchSales(searchDto);
+  }
+
+  @Get('report/pdf')
+  async getSalesReportPdf(@Query() query: QueryFindAllDto, @Res() res: Response) {
+    const pdfBuffer = await this.salesService.generateSalesReportPdf(query);
+    const fileName = `reporte-ventas-${Date.now()}.pdf`;
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${fileName}"`,
+      'Content-Length': pdfBuffer.length,
+      'Cache-Control': 'no-store',
+    });
+
+    res.end(pdfBuffer);
   }
 
   @Get(':id')

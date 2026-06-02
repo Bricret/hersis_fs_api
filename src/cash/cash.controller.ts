@@ -9,9 +9,11 @@ import {
   HttpCode,
   HttpStatus,
   Query,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { CashService } from './cash.service';
-import { CreateCashDto, CloseCashDto, UpdateCashDto } from './dto';
+import { CreateCashDto, CloseCashDto, QueryCashDto, UpdateCashDto } from './dto';
 
 @Controller('cash')
 export class CashController {
@@ -24,11 +26,8 @@ export class CashController {
   }
 
   @Get()
-  findAll(@Query('branch_id') branchId?: string) {
-    if (branchId) {
-      return this.cashService.findByBranch(branchId);
-    }
-    return this.cashService.findAll();
+  findAll(@Query() query: QueryCashDto) {
+    return this.cashService.findAll(query);
   }
 
   @Get('active/:branchId')
@@ -49,6 +48,21 @@ export class CashController {
   @Get(':id/sales')
   getCashSales(@Param('id') id: string) {
     return this.cashService.getCashSales(id);
+  }
+
+  @Get(':id/report/pdf')
+  async getCashReportPdf(@Param('id') id: string, @Res() res: Response) {
+    const pdfBuffer = await this.cashService.generateCashReportPdf(id);
+    const fileName = `reporte-caja-${id}.pdf`;
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${fileName}"`,
+      'Content-Length': pdfBuffer.length,
+      'Cache-Control': 'no-store',
+    });
+
+    res.end(pdfBuffer);
   }
 
   @Patch(':id')

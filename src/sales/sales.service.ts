@@ -2,7 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { Sale } from './entities/sale.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, Like } from 'typeorm';
+import { Repository, Between, Like, Brackets } from 'typeorm';
 import { CommonService } from 'src/common/common.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { Branch } from 'src/branches/intities/branches.entity';
@@ -16,6 +16,7 @@ import { SearchSalesDto } from './dto/search-sales.dto';
 import { GeneralProduct } from 'src/products/entities/general-product.entity';
 import { Medicine } from 'src/products/entities/medicine.entity';
 import { SalesSchema, PaginatedSalesResponse } from './dto/sales.schema';
+import PdfPrinter = require('pdfmake/src/printer');
 
 @Injectable()
 export class SalesService {
@@ -34,6 +35,23 @@ export class SalesService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
   ) {}
+
+  private readonly currencyFormatter = new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+  });
+
+  private formatCurrency(value: number): string {
+    return this.currencyFormatter.format(Number(value) || 0);
+  }
+
+  private formatDateTime(dateValue?: Date | null): string {
+    if (!dateValue) return 'N/A';
+    return new Intl.DateTimeFormat('es-MX', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(dateValue));
+  }
 
   async create(createSaleDto: CreateSaleDto) {
     try {
@@ -117,58 +135,18 @@ export class SalesService {
   async findAll(query: QueryFindAllDto): Promise<PaginatedSalesResponse> {
     try {
       const { page = 1, limit = 10 } = query;
-      
-      // Validar parámetros de paginación
       const validPage = Math.max(1, page);
       const validLimit = Math.min(100, Math.max(1, limit));
       const skip = (validPage - 1) * validLimit;
 
-      // Obtener total y ventas en paralelo
-      const [total, sales] = await Promise.all([
-        this.saleRepository.count(),
-        this.saleRepository.find({
-          relations: ['branch', 'cash_register', 'user', 'saleDetails'],
-          order: { date: 'DESC' },
-          skip,
-          take: validLimit
-        })
-      ]);
+      const queryBuilder = this.buildFindAllQuery(query);
+      const total = await queryBuilder.clone().getCount();
+      const sales = await queryBuilder.skip(skip).take(validLimit).getMany();
 
       // Cargar nombres de productos para los detalles de venta
       await this.loadProductNames(sales);
 
-      // Mapear los resultados según el esquema SalesSchema
-      const mappedSales: SalesSchema[] = sales.map(sale => ({
-        id: Number(sale.id),
-        date: sale.date,
-        total: sale.total,
-        branch: sale.branch ? {
-          id: sale.branch.id,
-          name: sale.branch.name
-        } : null,
-        cash_register: sale.cash_register ? {
-          id: sale.cash_register.id,
-          fecha_apertura: sale.cash_register.fecha_apertura,
-          fecha_cierre: sale.cash_register.fecha_cierre,
-          estado: sale.cash_register.estado
-        } : null,
-        user: sale.user ? {
-          id: sale.user.id,
-          name: sale.user.name,
-          is_active: sale.user.isActive
-        } : null,
-        saleDetails: sale.saleDetails?.map(detail => ({
-          id: detail.id.toString(),
-          quantity: detail.quantity,
-          unit_price: detail.unit_price,
-          subtotal: detail.subtotal,
-          productId: detail.productId,
-          product_type: detail.product_type,
-          productName: detail['productName'] || 'Producto no encontrado'
-        })) || []
-      }));
-
-      // Calcular metadata de paginación
+      const mappedSales = this.mapSalesWithRelations(sales);
       const totalPages = Math.ceil(total / validLimit);
 
       return {
@@ -185,6 +163,108 @@ export class SalesService {
     } catch (error) {
       this.commonService.handleExceptions(error.message, 'BR');
     }
+  }
+
+  private buildFindAllQuery(query: QueryFindAllDto) {
+    const {
+      search,
+      branch_id,
+      user_id,
+      date_from,
+      date_to,
+      min_amount,
+      max_amount,
+    } = query;
+
+    const queryBuilder = this.saleRepository
+      .createQueryBuilder('sale')
+      .leftJoinAndSelect('sale.branch', 'branch')
+      .leftJoinAndSelect('sale.cash_register', 'cash_register')
+      .leftJoinAndSelect('sale.user', 'user')
+      .leftJoinAndSelect('sale.saleDetails', 'saleDetails')
+      .orderBy('sale.date', 'DESC');
+
+    if (search?.trim()) {
+      const normalizedSearch = `%${search.trim().toLowerCase()}%`;
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where('LOWER(sale.id::text) LIKE :search', { search: normalizedSearch })
+            .orWhere('LOWER(user.name) LIKE :search', { search: normalizedSearch })
+            .orWhere('LOWER(branch.name) LIKE :search', { search: normalizedSearch });
+        }),
+      );
+    }
+
+    if (branch_id) {
+      queryBuilder.andWhere('branch.id = :branchId', { branchId: branch_id });
+    }
+
+    if (user_id) {
+      queryBuilder.andWhere('user.id = :userId', { userId: user_id });
+    }
+
+    if (date_from) {
+      queryBuilder.andWhere('sale.date >= :dateFrom', {
+        dateFrom: new Date(date_from),
+      });
+    }
+
+    if (date_to) {
+      const inclusiveDateTo = new Date(date_to);
+      inclusiveDateTo.setHours(23, 59, 59, 999);
+      queryBuilder.andWhere('sale.date <= :dateTo', {
+        dateTo: inclusiveDateTo,
+      });
+    }
+
+    if (typeof min_amount === 'number') {
+      queryBuilder.andWhere('sale.total >= :minAmount', { minAmount: min_amount });
+    }
+
+    if (typeof max_amount === 'number') {
+      queryBuilder.andWhere('sale.total <= :maxAmount', { maxAmount: max_amount });
+    }
+
+    return queryBuilder;
+  }
+
+  private mapSalesWithRelations(sales: Sale[]): SalesSchema[] {
+    return sales.map((sale) => ({
+      id: Number(sale.id),
+      date: sale.date,
+      total: sale.total,
+      branch: sale.branch
+        ? {
+            id: sale.branch.id,
+            name: sale.branch.name,
+          }
+        : null,
+      cash_register: sale.cash_register
+        ? {
+            id: sale.cash_register.id,
+            fecha_apertura: sale.cash_register.fecha_apertura,
+            fecha_cierre: sale.cash_register.fecha_cierre,
+            estado: sale.cash_register.estado,
+          }
+        : null,
+      user: sale.user
+        ? {
+            id: sale.user.id,
+            name: sale.user.name,
+            is_active: sale.user.isActive,
+          }
+        : null,
+      saleDetails:
+        sale.saleDetails?.map((detail) => ({
+          id: detail.id.toString(),
+          quantity: detail.quantity,
+          unit_price: detail.unit_price,
+          subtotal: detail.subtotal,
+          productId: detail.productId,
+          product_type: detail.product_type,
+          productName: detail['productName'] || 'Producto no encontrado',
+        })) || [],
+    }));
   }
 
   private async loadProductNames(sales: Sale[]): Promise<void> {
@@ -574,6 +654,222 @@ export class SalesService {
     }
   }
 
+  private formatSaleProducts(sale: Sale): string {
+    if (!sale.saleDetails?.length) return 'Sin productos';
+
+    const products = sale.saleDetails.map((detail) => {
+      const name = detail['productName'] || 'Producto';
+      return `${name} x${Number(detail.quantity || 0)}`;
+    });
+
+    if (products.length <= 2) {
+      return products.join(', ');
+    }
+
+    return `${products.slice(0, 2).join(', ')} (+${products.length - 2} mas)`;
+  }
+
+  private formatAppliedFilters(query: QueryFindAllDto): string {
+    const filters: string[] = [];
+
+    if (query.search?.trim()) filters.push(`Busqueda: ${query.search.trim()}`);
+    if (query.branch_id) filters.push(`Sucursal: ${query.branch_id}`);
+    if (query.user_id) filters.push(`Vendedor: ${query.user_id}`);
+    if (query.date_from) filters.push(`Desde: ${this.formatDateTime(new Date(query.date_from))}`);
+    if (query.date_to) filters.push(`Hasta: ${this.formatDateTime(new Date(query.date_to))}`);
+    if (typeof query.min_amount === 'number') filters.push(`Monto min: ${this.formatCurrency(query.min_amount)}`);
+    if (typeof query.max_amount === 'number') filters.push(`Monto max: ${this.formatCurrency(query.max_amount)}`);
+
+    return filters.length > 0 ? filters.join(' | ') : 'Sin filtros aplicados';
+  }
+
+  async generateSalesReportPdf(query: QueryFindAllDto): Promise<Buffer> {
+    const queryBuilder = this.buildFindAllQuery({
+      ...query,
+      page: undefined,
+      limit: undefined,
+    });
+
+    const sales = await queryBuilder.getMany();
+    await this.loadProductNames(sales);
+
+    const totalSalesAmount = sales.reduce(
+      (sum, sale) => sum + Number(sale.total || 0),
+      0,
+    );
+    const totalProducts = sales.reduce(
+      (sum, sale) =>
+        sum +
+        (sale.saleDetails?.reduce(
+          (detailAcc, detail) => detailAcc + Number(detail.quantity || 0),
+          0,
+        ) || 0),
+      0,
+    );
+
+    const tableBody: any[][] = [
+      [
+        { text: 'Venta #', style: 'tableHeader', alignment: 'center' },
+        { text: 'Fecha', style: 'tableHeader', alignment: 'center' },
+        { text: 'Vendedor', style: 'tableHeader' },
+        { text: 'Sucursal', style: 'tableHeader' },
+        { text: 'Productos vendidos', style: 'tableHeader' },
+        { text: 'Total', style: 'tableHeader', alignment: 'right' },
+      ],
+      ...sales.map((sale) => [
+        { text: `${sale.id}`, alignment: 'center' },
+        { text: this.formatDateTime(sale.date), alignment: 'center' },
+        { text: sale.user?.name || 'Usuario no disponible' },
+        { text: sale.branch?.name || 'Sucursal no disponible' },
+        { text: this.formatSaleProducts(sale) },
+        { text: this.formatCurrency(Number(sale.total || 0)), alignment: 'right' },
+      ]),
+    ];
+
+    const generatedAt = new Date();
+    const appliedFilters = this.formatAppliedFilters(query);
+
+    const docDefinition: any = {
+      pageSize: 'A4',
+      pageOrientation: 'landscape',
+      pageMargins: [28, 82, 28, 38],
+      header: (currentPage, pageCount) => ({
+        margin: [28, 24, 28, 0],
+        table: {
+          widths: ['*', 'auto'],
+          body: [
+            [
+              {
+                stack: [
+                  { text: 'REPORTE DE VENTAS', style: 'headerTitle' },
+                  { text: `Filtros: ${appliedFilters}`, style: 'headerSubtitle' },
+                ],
+                border: [false, false, false, false],
+              },
+              {
+                stack: [
+                  {
+                    text: this.formatDateTime(generatedAt),
+                    style: 'headerMeta',
+                    alignment: 'right',
+                  },
+                  {
+                    text: `Pag. ${currentPage} de ${pageCount}`,
+                    style: 'headerMeta',
+                    alignment: 'right',
+                  },
+                ],
+                border: [false, false, false, false],
+              },
+            ],
+          ],
+        },
+        layout: {
+          hLineWidth: () => 0,
+          vLineWidth: () => 0,
+        },
+      }),
+      content: [
+        {
+          table: {
+            widths: ['33%', '33%', '34%'],
+            body: [
+              [
+                { text: 'Total de ventas', style: 'summaryHeader' },
+                { text: 'Productos vendidos', style: 'summaryHeader' },
+                { text: 'Monto total', style: 'summaryHeader' },
+              ],
+              [
+                { text: `${sales.length}`, style: 'summaryValue' },
+                { text: `${totalProducts}`, style: 'summaryValue' },
+                { text: this.formatCurrency(totalSalesAmount), style: 'summaryValue' },
+              ],
+            ],
+          },
+          layout: {
+            fillColor: (rowIndex: number) => (rowIndex === 0 ? '#E0E7FF' : '#F8FAFC'),
+            hLineColor: () => '#94A3B8',
+            vLineColor: () => '#94A3B8',
+            hLineWidth: () => 1,
+            vLineWidth: () => 1,
+          },
+          margin: [0, 0, 0, 12],
+        },
+        sales.length > 0
+          ? {
+              table: {
+                headerRows: 1,
+                widths: ['8%', '16%', '16%', '16%', '28%', '16%'],
+                body: tableBody,
+              },
+              layout: {
+                fillColor: (rowIndex: number) => {
+                  if (rowIndex === 0) return '#1E3A8A';
+                  return rowIndex % 2 === 0 ? '#F1F5F9' : '#FFFFFF';
+                },
+                hLineColor: () => '#CBD5E1',
+                vLineColor: () => '#CBD5E1',
+                hLineWidth: () => 1,
+                vLineWidth: () => 1,
+              },
+            }
+          : {
+              text: 'No se encontraron ventas con los filtros seleccionados.',
+              style: 'emptyState',
+            },
+      ],
+      styles: {
+        headerTitle: {
+          fontSize: 13,
+          bold: true,
+          color: '#0F172A',
+        },
+        headerSubtitle: {
+          fontSize: 8,
+          color: '#334155',
+          margin: [0, 2, 0, 0],
+        },
+        headerMeta: {
+          fontSize: 8,
+          color: '#475569',
+          margin: [0, 1, 0, 0],
+        },
+        summaryHeader: {
+          bold: true,
+          fontSize: 9,
+          color: '#1E3A8A',
+          alignment: 'center',
+          margin: [3, 6, 3, 6],
+        },
+        summaryValue: {
+          fontSize: 11,
+          bold: true,
+          color: '#0F172A',
+          alignment: 'center',
+          margin: [3, 7, 3, 7],
+        },
+        tableHeader: {
+          fontSize: 9,
+          bold: true,
+          color: '#FFFFFF',
+          margin: [4, 6, 4, 6],
+        },
+        emptyState: {
+          fontSize: 10,
+          color: '#475569',
+          italics: true,
+        },
+      },
+      defaultStyle: {
+        font: 'Helvetica',
+        fontSize: 9,
+        color: '#0F172A',
+      },
+    };
+
+    return this.buildPdfBuffer(docDefinition);
+  }
+
   async cancelSale(saleId: number, reason: string) {
     try {
       const sale = await this.findOne(saleId);
@@ -687,6 +983,28 @@ export class SalesService {
     return Object.values(dailySales).sort((a: any, b: any) => 
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
+  }
+
+  private async buildPdfBuffer(docDefinition: any): Promise<Buffer> {
+    const fonts = {
+      Helvetica: {
+        normal: 'Helvetica',
+        bold: 'Helvetica-Bold',
+        italics: 'Helvetica-Oblique',
+        bolditalics: 'Helvetica-BoldOblique',
+      },
+    };
+
+    const printer = new PdfPrinter(fonts);
+    const pdfDocument = printer.createPdfKitDocument(docDefinition);
+    const chunks: Buffer[] = [];
+
+    return await new Promise<Buffer>((resolve, reject) => {
+      pdfDocument.on('data', (chunk: Buffer) => chunks.push(chunk));
+      pdfDocument.on('end', () => resolve(Buffer.concat(chunks)));
+      pdfDocument.on('error', (error) => reject(error));
+      pdfDocument.end();
+    });
   }
 
   async verifyCashConsistency(cashId: string) {

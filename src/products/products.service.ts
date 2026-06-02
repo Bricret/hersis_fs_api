@@ -142,12 +142,19 @@ export class ProductsService {
           'medicine.sales_price',
           'medicine.purchase_price',
           'medicine.initial_quantity',
+          'medicine.units_per_box',
+          'medicine.lot_number',
           'medicine.expiration_date',
           'medicine.is_active',
           'medicine.type',
+          'medicine.active_name',
+          'medicine.dosage',
+          'medicine.prescription',
+          'medicine.laboratory',
+          'medicine.administration_route',
           'medicine.presentation_id',
           'category.id',
-          'category.name'
+          'category.name',
         ]);
 
       const generalProductQueryBuilder = this.generalProductRepository
@@ -161,47 +168,33 @@ export class ProductsService {
           'generalProduct.sales_price',
           'generalProduct.purchase_price',
           'generalProduct.initial_quantity',
+          'generalProduct.units_per_box',
+          'generalProduct.lot_number',
           'generalProduct.expiration_date',
           'generalProduct.is_active',
           'generalProduct.type',
+          'generalProduct.brand',
+          'generalProduct.model',
           'category.id',
-          'category.name'
+          'category.name',
         ]);
 
       if (search && search.length > 0) {
-        // Determinar si la búsqueda es por código específico o por coincidencias parciales
-        // Asumimos que es un código si contiene números o si no contiene espacios y es alfanumérico
-        const isCodeSearch = /^[A-Za-z0-9\-_]+$/.test(search) && (/\d/.test(search) || search.length >= 6);
-        
-        if (isCodeSearch) {
-          // Búsqueda exacta por código de barras
-          medicineQueryBuilder.where(
-            'LOWER(medicine.barCode) = LOWER(:exactSearch)',
-            { exactSearch: search }
-          );
-          
-          generalProductQueryBuilder.where(
-            'LOWER(generalProduct.barCode) = LOWER(:exactSearch)',
-            { exactSearch: search }
-          );
-        } else {
-          // Búsqueda por coincidencias parciales en nombres y descripciones
-          const searchPattern = `%${search}%`;
-          
-          // Búsqueda insensible a mayúsculas/minúsculas y acentos para medicamentos
-          medicineQueryBuilder.where(
-            `LOWER(unaccent(medicine.name)) LIKE LOWER(unaccent(:search)) OR 
-             LOWER(unaccent(medicine.description)) LIKE LOWER(unaccent(:search))`,
-            { search: searchPattern },
-          );
-          
-          // Búsqueda insensible a mayúsculas/minúsculas y acentos para productos generales
-          generalProductQueryBuilder.where(
-            `LOWER(unaccent(generalProduct.name)) LIKE LOWER(unaccent(:search)) OR 
-             LOWER(unaccent(generalProduct.description)) LIKE LOWER(unaccent(:search))`,
-            { search: searchPattern },
-          );
-        }
+        const searchPattern = `%${search}%`;
+
+        medicineQueryBuilder.where(
+          `(LOWER(unaccent(medicine.name)) LIKE LOWER(unaccent(:search))
+            OR LOWER(unaccent(medicine.description)) LIKE LOWER(unaccent(:search))
+            OR LOWER(medicine.barCode) = LOWER(:exactSearch))`,
+          { search: searchPattern, exactSearch: search },
+        );
+
+        generalProductQueryBuilder.where(
+          `(LOWER(unaccent(generalProduct.name)) LIKE LOWER(unaccent(:search))
+            OR LOWER(unaccent(generalProduct.description)) LIKE LOWER(unaccent(:search))
+            OR LOWER(generalProduct.barCode) = LOWER(:exactSearch))`,
+          { search: searchPattern, exactSearch: search },
+        );
       }
 
       // Primero obtenemos todos los productos sin paginación para calcular el total real
@@ -258,58 +251,29 @@ export class ProductsService {
 
   async update(id: bigint, updateProductDto: UpdateProductDto) {
     try {
-      const medicine = await this.medicineRepository.findOne({ where: { id } });
-      if (medicine) {
-        const { presentation_id, category_id, user_create, ...medicineData } = updateProductDto;
-        
-        const updateData: any = { ...medicineData };
-        
-        if (category_id) {
-          updateData.category = { id: category_id };
-        }
-        
-        if (presentation_id) {
-          updateData.presentation = { id: presentation_id };
-        }
-        
-        await this.medicineRepository.update({ id }, updateData);
-        
-        await this.logsService.createLog({
-          action: 'update',
-          entity: 'medicine',
-          description: `Medicamento ${medicine.name} actualizado exitosamente.`,
-          userId: updateProductDto.user_create || '1',
-          timestamp: new Date(),
-        });
-        
-        return { message: 'Medicamento actualizado correctamente' };
+      const productType = updateProductDto.type;
+
+      if (productType === 'general') {
+        return await this.updateGeneralProduct(id, updateProductDto);
       }
 
+      if (productType === 'medicine') {
+        return await this.updateMedicine(id, updateProductDto);
+      }
+
+      // Fallback: detectar tipo si no se envió explícitamente
       const generalProduct = await this.generalProductRepository.findOne({
         where: { id },
       });
       if (generalProduct) {
-        const { category_id, user_create, ...generalProductData } = updateProductDto;
-        
-        const updateData: any = { ...generalProductData };
-        
-        if (category_id) {
-          updateData.category = { id: category_id };
-        }
-        
-        await this.generalProductRepository.update({ id }, updateData);
-        
-        await this.logsService.createLog({
-          action: 'update',
-          entity: 'general_product',
-          description: `Producto ${generalProduct.name} actualizado exitosamente.`,
-          userId: updateProductDto.user_create,
-          timestamp: new Date(),
-        });
-        
-        return { message: 'Producto actualizado correctamente' };
+        return await this.updateGeneralProduct(id, updateProductDto);
       }
-      
+
+      const medicine = await this.medicineRepository.findOne({ where: { id } });
+      if (medicine) {
+        return await this.updateMedicine(id, updateProductDto);
+      }
+
       this.commonService.handleExceptions(
         'El producto solicitado no fue encontrado.',
         'NF',
@@ -317,6 +281,80 @@ export class ProductsService {
     } catch (error) {
       this.commonService.handleExceptions(error.message, 'BR');
     }
+  }
+
+  private async updateMedicine(
+    id: bigint,
+    updateProductDto: UpdateProductDto,
+  ) {
+    const medicine = await this.medicineRepository.findOne({ where: { id } });
+    if (!medicine) {
+      this.commonService.handleExceptions(
+        `El medicamento con ID ${id} no fue encontrado.`,
+        'NF',
+      );
+    }
+
+    const { presentation_id, category_id, user_create, type, ...medicineData } =
+      updateProductDto;
+
+    const updateData: Record<string, unknown> = { ...medicineData };
+
+    if (category_id) {
+      updateData.category = { id: category_id };
+    }
+
+    if (presentation_id) {
+      updateData.presentation = { id: presentation_id };
+    }
+
+    await this.medicineRepository.update({ id }, updateData);
+
+    await this.logsService.createLog({
+      action: 'update',
+      entity: 'medicine',
+      description: `Medicamento ${medicine.name} actualizado exitosamente.`,
+      userId: updateProductDto.user_create || '1',
+      timestamp: new Date(),
+    });
+
+    return { message: 'Medicamento actualizado correctamente' };
+  }
+
+  private async updateGeneralProduct(
+    id: bigint,
+    updateProductDto: UpdateProductDto,
+  ) {
+    const generalProduct = await this.generalProductRepository.findOne({
+      where: { id },
+    });
+    if (!generalProduct) {
+      this.commonService.handleExceptions(
+        `El producto con ID ${id} no fue encontrado.`,
+        'NF',
+      );
+    }
+
+    const { category_id, user_create, type, ...generalProductData } =
+      updateProductDto;
+
+    const updateData: Record<string, unknown> = { ...generalProductData };
+
+    if (category_id) {
+      updateData.category = { id: category_id };
+    }
+
+    await this.generalProductRepository.update({ id }, updateData);
+
+    await this.logsService.createLog({
+      action: 'update',
+      entity: 'general_product',
+      description: `Producto ${generalProduct.name} actualizado exitosamente.`,
+      userId: updateProductDto.user_create,
+      timestamp: new Date(),
+    });
+
+    return { message: 'Producto actualizado correctamente' };
   }
 
   async remove(id: bigint, type: string) {
